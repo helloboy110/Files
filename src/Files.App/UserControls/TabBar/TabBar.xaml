@@ -32,6 +32,14 @@
 							KeyboardAcceleratorTextOverride="{x:Bind Commands.DuplicateSelectedTab.HotKeyText, Mode=OneWay}"
 							Text="{x:Bind Commands.DuplicateSelectedTab.Label}" />
 						<MenuFlyoutItem
+							x:Name="MenuItemRenameTab"
+							Click="RenameTabAsync"
+							Text="{helpers:ResourceString Name=Rename}">
+							<MenuFlyoutItem.Icon>
+								<FontIcon Glyph="&#xE8AC;" />
+							</MenuFlyoutItem.Icon>
+						</MenuFlyoutItem>
+						<MenuFlyoutItem
 							x:Name="MenuItemMoveTabToNewWindow"
 							Click="MoveTabToNewWindowAsync"
 							Text="{helpers:ResourceString Name=HorizontalMultitaskingControlMoveTabToNewWindow/Text}">
@@ -114,7 +122,7 @@
 						Style="{StaticResource App.ThemedIcons.Panes.Single}" />
 
 					<Button.Flyout>
-						<MenuFlyout Placement="BottomEdgeAlignedLeft">
+						<MenuFlyout Opening="TabActionsFlyout_Opening" Placement="BottomEdgeAlignedLeft">
 
 							<!--  New Window  -->
 							<uc:MenuFlyoutItemWithThemedIcon
@@ -207,6 +215,25 @@
 								KeyboardAcceleratorTextOverride="{x:Bind Commands.CloseActivePane.HotKeyText, Mode=OneWay}"
 								Text="{x:Bind Commands.CloseActivePane.Label}"
 								ThemedIconStyle="{x:Bind Commands.CloseActivePane.ThemedIconStyle}" />
+
+							<MenuFlyoutSeparator />
+
+							<!--  Layout Profiles  -->
+							<MenuFlyoutSubItem
+								x:Name="LayoutProfilesMenuItem"
+								Text="{helpers:ResourceString Name=LayoutProfiles}">
+								<MenuFlyoutSubItem.Items>
+									<MenuFlyoutItem Click="SaveLayoutProfileAsync" Text="{helpers:ResourceString Name=LayoutProfilesSaveCurrent}" />
+									<MenuFlyoutItem x:Name="LayoutProfilesOpenFileItem" Click="OpenLayoutProfilesFileAsync" Text="{helpers:ResourceString Name=LayoutProfilesOpenFile}" />
+									<MenuFlyoutSeparator x:Name="LayoutProfilesSeparator" Visibility="Collapsed" />
+									<!--  Saved layouts populate here at open time  -->
+									<MenuFlyoutItem
+										x:Name="LayoutProfilesPlaceholder"
+										IsEnabled="False"
+										Text="{helpers:ResourceString Name=LayoutProfilesEmpty}"
+										Visibility="Collapsed" />
+								</MenuFlyoutSubItem.Items>
+							</MenuFlyoutSubItem>
 
 						</MenuFlyout>
 					</Button.Flyout>

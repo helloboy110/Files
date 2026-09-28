@@ -2075,6 +2075,30 @@
   <data name="Custom" xml:space="preserve">
     <value>自定义</value>
   </data>
+  <data name="CyberNeon" xml:space="preserve">
+    <value>赛博霓虹</value>
+  </data>
+  <data name="CyberViolet" xml:space="preserve">
+    <value>赛博紫罗兰</value>
+  </data>
+  <data name="CyberMint" xml:space="preserve">
+    <value>赛博薄荷</value>
+  </data>
+  <data name="LayoutProfiles" xml:space="preserve">
+    <value>布局配置</value>
+  </data>
+  <data name="LayoutProfilesSaveCurrent" xml:space="preserve">
+    <value>保存当前布局</value>
+  </data>
+  <data name="LayoutProfilesSaveHint" xml:space="preserve">
+    <value>为布局命名，将记录窗格排列、各窗格路径与配色方案。</value>
+  </data>
+  <data name="LayoutProfilesOpenFile" xml:space="preserve">
+    <value>编辑配置文件</value>
+  </data>
+  <data name="LayoutProfilesEmpty" xml:space="preserve">
+    <value>暂无已保存的布局</value>
+  </data>
   <data name="Slideshow" xml:space="preserve">
     <value>幻灯片</value>
   </data>

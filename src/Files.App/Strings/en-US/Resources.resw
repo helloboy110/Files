@@ -2081,6 +2081,30 @@
   <data name="Custom" xml:space="preserve">
     <value>Custom</value>
   </data>
+  <data name="CyberNeon" xml:space="preserve">
+    <value>Cyber neon</value>
+  </data>
+  <data name="CyberViolet" xml:space="preserve">
+    <value>Cyber violet</value>
+  </data>
+  <data name="CyberMint" xml:space="preserve">
+    <value>Cyber mint</value>
+  </data>
+  <data name="LayoutProfiles" xml:space="preserve">
+    <value>Layout profiles</value>
+  </data>
+  <data name="LayoutProfilesSaveCurrent" xml:space="preserve">
+    <value>Save current layout</value>
+  </data>
+  <data name="LayoutProfilesSaveHint" xml:space="preserve">
+    <value>Name this layout — it stores the pane arrangement, folder paths, and color scheme.</value>
+  </data>
+  <data name="LayoutProfilesOpenFile" xml:space="preserve">
+    <value>Edit profiles file</value>
+  </data>
+  <data name="LayoutProfilesEmpty" xml:space="preserve">
+    <value>No saved layouts</value>
+  </data>
   <data name="Slideshow" xml:space="preserve">
     <value>Slideshow</value>
   </data>

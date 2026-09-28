@@ -126,6 +126,8 @@ namespace Files.App
 
 			public const string FileTagSettingsFileName = "filetags.json";
 
+			public const string LayoutProfilesSettingsFileName = "layout_profiles.json";
+
 			public const string UserSettingsDatabaseFileName = "user_settings.db";
 
 			public const string FileTagSettingsDatabaseFileName = "filetags.db";

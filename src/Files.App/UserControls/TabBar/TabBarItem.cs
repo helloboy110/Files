@@ -29,11 +29,27 @@ namespace Files.App.UserControls.TabBar
 			set => SetProperty(ref _Header, value);
 		}
 
+		// User-assigned name; overrides the auto-generated path header until cleared
+		private string? _CustomName;
+		public string? CustomName
+		{
+			get => _CustomName;
+			set
+			{
+				if (SetProperty(ref _CustomName, value))
+					RefreshHeader();
+			}
+		}
+
 		private string? _Description = null;
 		public string? Description
 		{
 			get => _Description;
-			set => SetProperty(ref _Description, value);
+			set
+			{
+				if (SetProperty(ref _Description, value))
+					RefreshHeader();
+			}
 		}
 
 		private string? _ToolTipText;
@@ -93,6 +109,12 @@ namespace Files.App.UserControls.TabBar
 			Dispose();
 		}
 
+		// Custom name wins over the auto-generated path hints
+		private void RefreshHeader()
+		{
+			Header = string.IsNullOrWhiteSpace(CustomName) ? Description : CustomName;
+		}
+
 		private void ContentFrame_Navigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
 		{
 			if (TabItemContent is not null)
@@ -101,6 +123,8 @@ namespace Files.App.UserControls.TabBar
 
 		private void TabItemContent_ContentChanged(object? sender, TabBarItemParameter e)
 		{
+			// Preserve the user-assigned name across navigation updates
+			e.TabName = _CustomName;
 			_NavigationArguments = e;
 			ContentChanged?.Invoke(this, e);
 		}

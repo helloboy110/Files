@@ -106,6 +106,21 @@ namespace Files.App.Data.Factories
 			{
 				BackgroundColor = "#327E735F", /* #7E735F */
 				Name = Strings.Camouflage.GetLocalizedResource()
+			},
+			new AppThemeResourceItem
+			{
+				BackgroundColor = "#6600E5FF", /* #00E5FF cyan glow */
+				Name = Strings.CyberNeon.GetLocalizedResource()
+			},
+			new AppThemeResourceItem
+			{
+				BackgroundColor = "#667F00FF", /* #7F00FF violet glow */
+				Name = Strings.CyberViolet.GetLocalizedResource()
+			},
+			new AppThemeResourceItem
+			{
+				BackgroundColor = "#6600FFA3", /* #00FFA3 mint glow */
+				Name = Strings.CyberMint.GetLocalizedResource()
 			}
 		];
 	}

@@ -327,6 +327,7 @@ namespace Files.App.Helpers
 					.AddSingleton<IAppSettingsService, AppSettingsService>(sp => new AppSettingsService(((UserSettingsService)sp.GetRequiredService<IUserSettingsService>()).GetSharingContext()))
 					.AddSingleton<IActionsSettingsService, ActionsSettingsService>(sp => new ActionsSettingsService(((UserSettingsService)sp.GetRequiredService<IUserSettingsService>()).GetSharingContext()))
 					.AddSingleton<IFileTagsSettingsService, FileTagsSettingsService>()
+					.AddSingleton<ILayoutProfilesSettingsService, LayoutProfilesSettingsService>()
 					// Contexts
 					.AddSingleton<IMultiPanesContext, MultiPanesContext>()
 					.AddSingleton<IContentPageContext, ContentPageContext>()

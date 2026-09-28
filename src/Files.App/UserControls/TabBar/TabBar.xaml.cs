@@ -1,13 +1,17 @@
-// Copyright (c) Files Community
+﻿// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using CommunityToolkit.WinUI;
+using Files.App.Dialogs;
+using Files.App.ViewModels.Dialogs;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Windows.System;
 using Windows.Win32;
 using WinRT;
 
@@ -350,6 +354,178 @@ namespace Files.App.UserControls.TabBar
 		private void TabItemContextMenu_Closing(object sender, object e)
 		{
 			SelectedTabItemChanged?.Invoke(null, null);
+		}
+
+		[DynamicWindowsRuntimeCast(typeof(MenuFlyout))]
+		private void TabActionsFlyout_Opening(object sender, object e)
+		{
+			// Rebuild the saved-layout entries each time the menu opens
+			var submenu = LayoutProfilesMenuItem;
+
+			var savedItems = submenu.Items
+				.OfType<MenuFlyoutItem>()
+				.Where(item => ReferenceEquals(item.Tag, "SavedLayout"))
+				.ToArray();
+
+			foreach (var item in savedItems)
+				submenu.Items.Remove(item);
+
+			LayoutProfilesPlaceholder.Visibility = Visibility.Collapsed;
+			LayoutProfilesSeparator.Visibility = Visibility.Collapsed;
+
+			var layouts = Ioc.Default.GetRequiredService<ILayoutProfilesSettingsService>().Layouts;
+
+			var insertAt = submenu.Items.IndexOf(LayoutProfilesPlaceholder);
+			if (insertAt < 0)
+				insertAt = submenu.Items.Count;
+
+			foreach (var layout in layouts)
+			{
+				var item = new MenuFlyoutItem
+				{
+					Text = layout.Name,
+					Tag = "SavedLayout",
+				};
+				item.Click += async (_, _) =>
+				{
+					try
+					{
+						await LayoutProfileHelpers.ActivateAsync(layout);
+					}
+					catch (Exception ex)
+					{
+						App.Logger?.LogWarning(ex, $"Failed to activate the layout profile '{layout.Name}'.");
+					}
+				};
+				submenu.Items.Insert(Math.Min(insertAt, submenu.Items.Count), item);
+				insertAt++;
+			}
+
+			if (layouts.Count is 0)
+			{
+				LayoutProfilesSeparator.Visibility = Visibility.Collapsed;
+				LayoutProfilesPlaceholder.Visibility = Visibility.Visible;
+			}
+			else
+			{
+				LayoutProfilesSeparator.Visibility = Visibility.Visible;
+			}
+		}
+
+		private async void SaveLayoutProfileAsync(object sender, RoutedEventArgs e)
+		{
+			var inputText = new TextBox
+			{
+				PlaceholderText = Strings.EnterAnItemName.GetLocalizedResource(),
+				Text = string.Empty
+			};
+
+			var dialog = new DynamicDialog(new DynamicDialogViewModel()
+			{
+				TitleText = Strings.LayoutProfilesSaveCurrent.GetLocalizedResource(),
+				SubtitleText = Strings.LayoutProfilesSaveHint.GetLocalizedResource(),
+				DisplayControl = new Grid
+				{
+					MinWidth = 300d,
+					Children = { inputText }
+				},
+				PrimaryButtonText = Strings.Save.GetLocalizedResource(),
+				CloseButtonText = Strings.Cancel.GetLocalizedResource(),
+				PrimaryButtonAction = (vm, args) =>
+				{
+					var name = inputText.Text.Trim();
+					if (string.IsNullOrEmpty(name))
+						return;
+
+					var layout = LayoutProfileHelpers.Capture(name);
+					if (layout is null)
+						return;
+
+					Ioc.Default.GetRequiredService<ILayoutProfilesSettingsService>().Save(layout);
+					vm.Hide();
+				},
+				CloseButtonAction = (vm, args) => vm.Hide(),
+				KeyDownAction = (vm, args) =>
+				{
+					if (args.Key is VirtualKey.Escape)
+						vm.Hide();
+					else if (args.Key is VirtualKey.Enter)
+					{
+						var name = inputText.Text.Trim();
+						if (!string.IsNullOrEmpty(name))
+						{
+							var layout = LayoutProfileHelpers.Capture(name);
+							if (layout is not null)
+								Ioc.Default.GetRequiredService<ILayoutProfilesSettingsService>().Save(layout);
+							vm.Hide();
+						}
+					}
+				},
+				DynamicButtons = DynamicDialogButtons.Primary | DynamicDialogButtons.Cancel
+			});
+
+			await dialog.ShowAsync();
+			dialog.Dispose();
+		}
+
+		private async void OpenLayoutProfilesFileAsync(object sender, RoutedEventArgs e)
+		{
+			try
+			{
+				var filePath = System.IO.Path.Combine(AppDataCompat.LocalFolderPath, Constants.LocalSettings.SettingsFolderName, Constants.LocalSettings.LayoutProfilesSettingsFileName);
+				await Win32Helper.InvokeWin32ComponentAsync(filePath, null);
+			}
+			catch (Exception ex)
+			{
+				App.Logger?.LogWarning(ex, "Failed to open the layout profiles file.");
+			}
+		}
+
+		private async void RenameTabAsync(object sender, RoutedEventArgs e)
+		{
+			if ((sender as FrameworkElement)?.DataContext is not TabBarItem tabItem)
+				return;
+
+			var inputText = new TextBox
+			{
+				PlaceholderText = Strings.EnterAnItemName.GetLocalizedResource(),
+				Text = tabItem.CustomName ?? string.Empty
+			};
+
+			var dialog = new DynamicDialog(new DynamicDialogViewModel()
+			{
+				TitleText = Strings.Rename.GetLocalizedResource(),
+				SubtitleText = Strings.EnterAnItemName.GetLocalizedResource(),
+				DisplayControl = new Grid
+				{
+					MinWidth = 300d,
+					Children = { inputText }
+				},
+				PrimaryButtonText = Strings.Save.GetLocalizedResource(),
+				CloseButtonText = Strings.Cancel.GetLocalizedResource(),
+				PrimaryButtonAction = (vm, args) =>
+				{
+					tabItem.CustomName = string.IsNullOrWhiteSpace(inputText.Text) ? null : inputText.Text.Trim();
+					vm.Hide();
+				},
+				CloseButtonAction = (vm, args) => vm.Hide(),
+				KeyDownAction = (vm, args) =>
+				{
+					if (args.Key is VirtualKey.Escape)
+						vm.Hide();
+					else if (args.Key is VirtualKey.Enter)
+					{
+						tabItem.CustomName = string.IsNullOrWhiteSpace(inputText.Text) ? null : inputText.Text.Trim();
+						vm.Hide();
+					}
+				},
+				DynamicButtons = DynamicDialogButtons.Primary | DynamicDialogButtons.Cancel
+			});
+
+			await dialog.ShowAsync();
+			dialog.Dispose();
+
+			AppLifecycleHelper.SaveSessionTabs();
 		}
 
 		private async void TabBarAddNewTabButton_Drop(object sender, DragEventArgs e)

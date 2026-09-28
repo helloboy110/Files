@@ -97,11 +97,19 @@ namespace Files.App.Helpers
 				ToolTipText = null
 			};
 
-			tabItem.NavigationParameter = new TabBarItemParameter()
-			{
-				InitialPageType = type,
-				NavigationParameter = tabViewItemArgs
-			};
+			var parameter = tabViewItemArgs is TabBarItemParameter storedParameter
+				? storedParameter
+				: new TabBarItemParameter()
+				{
+					InitialPageType = type,
+					NavigationParameter = tabViewItemArgs
+				};
+
+			// Restore a user-assigned tab name from the session data
+			if (!string.IsNullOrEmpty(parameter.TabName) && tabViewItemArgs is TabBarItemParameter)
+				tabItem.CustomName = parameter.TabName;
+
+			tabItem.NavigationParameter = parameter;
 
 			tabItem.ContentChanged += Control_ContentChanged;
 
@@ -119,6 +127,9 @@ namespace Files.App.Helpers
 			tabItem.AllowStorageItemDrop = true;
 
 			(string? Header, IconSource? Icon, string? ToolTip) result = default;
+			if (navigationArg is TabBarItemParameter storedParameter)
+				navigationArg = storedParameter.NavigationParameter;
+
 			if (navigationArg is PaneNavigationArguments paneArgs)
 			{
 				if (!string.IsNullOrEmpty(paneArgs.LeftPaneNavPathParam) && !string.IsNullOrEmpty(paneArgs.RightPaneNavPathParam))
@@ -155,6 +166,7 @@ namespace Files.App.Helpers
 
 				if (a1.LeftPaneNavPathParam == a2.LeftPaneNavPathParam && a1.RightPaneNavPathParam == a2.RightPaneNavPathParam)
 				{
+					// Description still tracks the location (tooltip, grouping); the header keeps a user-assigned name
 					tabItem.Description = result.Item1;
 					tabItem.IconSource = result.Item2;
 					tabItem.ToolTipText = result.Item3;
@@ -171,15 +183,16 @@ namespace Files.App.Helpers
 			{
 				var tabs = group.ToArray();
 
-				foreach (var t in tabs)
+				// Tabs renamed by the user keep their custom header
+				foreach (var t in tabs.Where(t => string.IsNullOrWhiteSpace(t.CustomName)))
 					t.Header = t.Description;
 
 				if (tabs.Length < 2 || tabs[0].Description!.Contains(" | "))
 					continue;
 
-				var hints = tabs.ToDictionary(t => t, t => AncestorHints(t.ToolTipText));
+				var hints = tabs.Where(t => string.IsNullOrWhiteSpace(t.CustomName)).ToDictionary(t => t, t => AncestorHints(t.ToolTipText));
 
-				foreach (var tab in tabs)
+				foreach (var tab in hints.Keys)
 				{
 					for (var d = 0; d < hints[tab].Length; d++)
 					{

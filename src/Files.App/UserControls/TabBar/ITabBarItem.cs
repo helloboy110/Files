@@ -16,6 +16,11 @@ namespace Files.App.UserControls.TabBar
 
 		string? Description { get; }
 
+		/// <summary>
+		/// Gets the user-assigned name that overrides the auto-generated header, or null when unnamed.
+		/// </summary>
+		string? CustomName { get; }
+
 		bool AllowStorageItemDrop { get; }
 
 		public TabBarItemParameter? NavigationParameter { get; }

@@ -17,6 +17,11 @@ namespace Files.App.Data.Parameters
 
 		public object? NavigationParameter { get; set; }
 
+		/// <summary>
+		/// User-assigned tab name persisted alongside the navigation data, or null when the tab is unnamed.
+		/// </summary>
+		public string? TabName { get; set; }
+
 		public string Serialize()
 		{
 			JsonNode? navigationParameter = NavigationParameter switch
@@ -31,6 +36,7 @@ namespace Files.App.Data.Parameters
 			{
 				[nameof(InitialPageType)] = InitialPageType.FullName ?? throw new JsonException("The initial page type does not have a full name."),
 				[nameof(NavigationParameter)] = navigationParameter,
+				[nameof(TabName)] = TabName,
 			}.ToJsonString();
 		}
 
@@ -65,6 +71,7 @@ namespace Files.App.Data.Parameters
 			{
 				InitialPageType = initialPageType,
 				NavigationParameter = navigationParameter,
+				TabName = data[nameof(TabName)]?.GetValue<string>(),
 			};
 		}
 	}

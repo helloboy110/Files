@@ -327,10 +327,10 @@ namespace Files.App.ViewModels
 
 					if (parameter is string navArgs)
 						await NavigationHelpers.AddNewTabByPathAsync(typeof(ShellPanesPage), navArgs, true);
-					else if (parameter is PaneNavigationArguments paneArgs)
+					else 					if (parameter is PaneNavigationArguments paneArgs)
 						await NavigationHelpers.AddNewTabByParamAsync(typeof(ShellPanesPage), paneArgs);
 					else if (parameter is TabBarItemParameter tabArgs)
-						await NavigationHelpers.AddNewTabByParamAsync(tabArgs.InitialPageType, tabArgs.NavigationParameter);
+						await NavigationHelpers.AddNewTabByParamAsync(tabArgs.InitialPageType, tabArgs);
 				}
 			}
 			finally
