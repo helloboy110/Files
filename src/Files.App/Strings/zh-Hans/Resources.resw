@@ -4323,6 +4323,12 @@
   <data name="ArrangePanesHorizontallyDescription" xml:space="preserve">
     <value>水平排列窗格</value>
   </data>
+  <data name="ArrangePanesGrid" xml:space="preserve">
+    <value>四宫格排列 (2x2)</value>
+  </data>
+  <data name="ArrangePanesGridDescription" xml:space="preserve">
+    <value>以 2x2 四宫格排列四个窗格</value>
+  </data>
   <data name="SplitPane" xml:space="preserve">
     <value>拆分窗格</value>
   </data>
