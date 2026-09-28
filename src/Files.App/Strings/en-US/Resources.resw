@@ -1802,6 +1802,9 @@
   <data name="NoSearchResultsFound" xml:space="preserve">
     <value>No items found</value>
   </data>
+  <data name="SearchInProgressLabel" xml:space="preserve">
+    <value>Searching…</value>
+  </data>
   <data name="OpenLogLocation" xml:space="preserve">
     <value>Open log location</value>
   </data>

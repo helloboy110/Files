@@ -12,11 +12,20 @@
 	mc:Ignorable="d">
 
 	<Border>
-		<TextBlock
-			x:Name="EmptyText"
-			Text="{helpers:ResourceString Name=EmptyFolder/Text}"
-			TextWrapping="Wrap"
-			Visibility="Collapsed" />
+		<StackPanel Spacing="12">
+			<ProgressRing
+				x:Name="SearchInProgressRing"
+				Width="40"
+				Height="40"
+				HorizontalAlignment="Center"
+				IsActive="True"
+				Visibility="Collapsed" />
+			<TextBlock
+				x:Name="EmptyText"
+				Text="{helpers:ResourceString Name=EmptyFolder/Text}"
+				TextWrapping="Wrap"
+				Visibility="Collapsed" />
+		</StackPanel>
 
 		<VisualStateManager.VisualStateGroups>
 			<VisualStateGroup>
@@ -40,6 +49,16 @@
 					<VisualState.Setters>
 						<Setter Target="EmptyText.Visibility" Value="Visible" />
 						<Setter Target="EmptyText.Text" Value="{helpers:ResourceString Name=NoSearchResultsFound}" />
+					</VisualState.Setters>
+				</VisualState>
+				<VisualState x:Name="SearchInProgressState">
+					<VisualState.StateTriggers>
+						<triggers:IsEqualStateTrigger Value="{x:Bind EmptyTextType, Mode=OneWay}" To="3" />
+					</VisualState.StateTriggers>
+					<VisualState.Setters>
+						<Setter Target="SearchInProgressRing.Visibility" Value="Visible" />
+						<Setter Target="EmptyText.Visibility" Value="Visible" />
+						<Setter Target="EmptyText.Text" Value="{helpers:ResourceString Name=SearchInProgressLabel}" />
 					</VisualState.Setters>
 				</VisualState>
 			</VisualStateGroup>

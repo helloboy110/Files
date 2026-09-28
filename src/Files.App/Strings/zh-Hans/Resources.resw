@@ -1796,6 +1796,9 @@
   <data name="NoSearchResultsFound" xml:space="preserve">
     <value>没有与搜索条件匹配的项</value>
   </data>
+  <data name="SearchInProgressLabel" xml:space="preserve">
+    <value>正在搜索…</value>
+  </data>
   <data name="OpenLogLocation" xml:space="preserve">
     <value>打开日志文件夹</value>
   </data>

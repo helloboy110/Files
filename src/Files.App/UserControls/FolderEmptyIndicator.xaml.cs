@@ -22,5 +22,6 @@ namespace Files.App.UserControls
 		None,
 		FolderEmpty,
 		NoSearchResultsFound,
+		SearchInProgress,
 	}
 }

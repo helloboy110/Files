@@ -1796,6 +1796,9 @@
   <data name="NoSearchResultsFound" xml:space="preserve">
     <value>找不到任何符合搜尋條件的檔案</value>
   </data>
+  <data name="SearchInProgressLabel" xml:space="preserve">
+    <value>正在搜尋…</value>
+  </data>
   <data name="OpenLogLocation" xml:space="preserve">
     <value>開啟執行紀錄檔資料夾</value>
   </data>

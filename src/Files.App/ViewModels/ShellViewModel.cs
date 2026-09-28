@@ -1004,6 +1004,17 @@ namespace Files.App.ViewModels
 
 		public void UpdateEmptyTextType()
 		{
+			// While items are still loading the empty state is not final yet; showing it early
+			// makes searches and slow folders flash "no results" before enumeration finishes.
+			// Searches without results yet show an explicit "searching" indicator instead.
+			if (isLoadingItems)
+			{
+				EmptyTextType = IsSearchResults && FilesAndFolders.Count == 0 && !IsLocationUnavailable
+					? EmptyTextType.SearchInProgress
+					: EmptyTextType.None;
+				return;
+			}
+
 			var isFolderEmpty = FilesAndFolders.Count == 0 && !IsLocationUnavailable;
 
 			EmptyTextType = isFolderEmpty ? (IsSearchResults ? EmptyTextType.NoSearchResultsFound : EmptyTextType.FolderEmpty) : EmptyTextType.None;
@@ -2146,6 +2157,7 @@ namespace Files.App.ViewModels
 
 				ItemLoadStatusChanged?.Invoke(this, new ItemLoadStatusChangedEventArgs() { Status = ItemLoadStatusChangedEventArgs.ItemLoadStatus.Complete, PreviousDirectory = previousDir, Path = path });
 				IsLoadingItems = false;
+				UpdateEmptyTextType();
 
 				if (Interlocked.Exchange(ref desktopIniUpdateTask, null) is Task task)
 					await task;
@@ -3442,7 +3454,6 @@ namespace Files.App.ViewModels
 			IsSearchResults = true;
 			HasNoWatcher = true;
 			await ApplyFilesAndFoldersChangesAsync();
-			EmptyTextType = EmptyTextType.None;
 
 			SearchHeaderTitle = !string.IsNullOrEmpty(search.Query)
 				? string.Format(Strings.SearchResultsFor.GetLocalizedResource(), search.Query)
@@ -3470,6 +3481,7 @@ namespace Files.App.ViewModels
 
 			ItemLoadStatusChanged?.Invoke(this, new ItemLoadStatusChangedEventArgs() { Status = ItemLoadStatusChangedEventArgs.ItemLoadStatus.Complete });
 			IsLoadingItems = false;
+			UpdateEmptyTextType();
 		}
 
 		public void CancelSearch()
