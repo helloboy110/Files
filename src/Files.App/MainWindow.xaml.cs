@@ -67,7 +67,7 @@ namespace Files.App
 					if (launchArgs.Arguments is not null &&
 						(CommandLineParser.SplitArguments(launchArgs.Arguments, true)[0].EndsWith($"files-dev.exe", StringComparison.OrdinalIgnoreCase)
 						|| CommandLineParser.SplitArguments(launchArgs.Arguments, true)[0].EndsWith($"files-dev", StringComparison.OrdinalIgnoreCase)
-						|| CommandLineParser.SplitArguments(launchArgs.Arguments, true)[0].Equals(Path.Join(Package.Current.InstalledLocation.Path, "Files.exe"), StringComparison.OrdinalIgnoreCase)))
+						|| CommandLineParser.SplitArguments(launchArgs.Arguments, true)[0].Equals(Path.Join(PackageCompat.InstalledPath, "Files.exe"), StringComparison.OrdinalIgnoreCase)))
 					{
 						// WINUI3: When launching from commandline the argument is not ICommandLineActivatedEventArgs (#10370)
 						var ppm = CommandLineParser.ParseUntrustedCommands(launchArgs.Arguments);
@@ -193,7 +193,7 @@ namespace Files.App
 					}
 					catch (Exception ex)
 					{
-						App.Logger.LogWarning(ex, "Failed to open files.");
+						App.Logger?.LogWarning(ex, "Failed to open files.");
 						if (rootFrame.Content is null || rootFrame.Content is SplashScreenPage || !MainPageViewModel.AppInstances.Any())
 							rootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
 						else
@@ -213,8 +213,7 @@ namespace Files.App
 			}
 
 			var appWindow = AppWindow;
-			if (appWindow is not null && !appWindow.IsVisible)
-			{
+			if (appWindow is not null && !appWindow.IsVisible)			{
 				// When resuming the cached instance
 				appWindow.Show();
 				Activate();

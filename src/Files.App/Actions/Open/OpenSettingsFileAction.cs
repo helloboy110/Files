@@ -3,6 +3,7 @@
 
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using System.IO;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
 using Windows.System;
@@ -31,7 +32,9 @@ namespace Files.App.Actions
 		{
 			try
 			{
-				var settingsJsonFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appdata:///local/{Constants.LocalSettings.SettingsFolderName}/{Constants.LocalSettings.UserSettingsFileName}"));
+				var settingsJsonFile = AppDataCompat.HasPackageIdentity
+					? await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appdata:///local/{Constants.LocalSettings.SettingsFolderName}/{Constants.LocalSettings.UserSettingsFileName}"))
+					: await StorageFile.GetFileFromPathAsync(Path.Combine(AppDataCompat.LocalFolderPath, Constants.LocalSettings.SettingsFolderName, Constants.LocalSettings.UserSettingsFileName));
 				if (!await Launcher.LaunchFileAsync(settingsJsonFile))
 					await ContextMenu.InvokeVerb("open", settingsJsonFile.Path);
 			}

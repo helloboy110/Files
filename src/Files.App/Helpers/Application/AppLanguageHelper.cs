@@ -47,8 +47,23 @@ namespace Files.App.Helpers
 		/// </summary>
 		static AppLanguageHelper()
 		{
+			// Package identity is required for manifest language queries; fall back to defaults when unpackaged
+			IReadOnlyList<string> manifestLanguages;
+			string primaryOverride;
+
+			try
+			{
+				manifestLanguages = ApplicationLanguages.ManifestLanguages;
+				primaryOverride = ApplicationLanguages.PrimaryLanguageOverride;
+			}
+			catch
+			{
+				manifestLanguages = [];
+				primaryOverride = string.Empty;
+			}
+
 			// Populate the Languages collection with available languages
-			var appLanguages = ApplicationLanguages.ManifestLanguages
+			var appLanguages = manifestLanguages
 			   .Append(string.Empty) // Add default language code
 			   .Select(language => new AppLanguageItem(language))
 			   .OrderBy(language => language.Code is not "") // Default language on top
@@ -56,7 +71,7 @@ namespace Files.App.Helpers
 			   .ToList();
 
 			// Get the current primary language override.
-			var current = new AppLanguageItem(ApplicationLanguages.PrimaryLanguageOverride);
+			var current = new AppLanguageItem(primaryOverride);
 
 			// Find the index of the saved language
 			var index = appLanguages.IndexOf(appLanguages.FirstOrDefault(dl => dl.Name == current.Name) ?? appLanguages.First());
@@ -86,7 +101,8 @@ namespace Files.App.Helpers
 			PreferredLanguage = SupportedLanguages[index];
 
 			// Update the primary language override
-			ApplicationLanguages.PrimaryLanguageOverride = index == 0 ? _defaultCode : PreferredLanguage.Code;
+			SafetyExtensions.IgnoreExceptions(() =>
+				ApplicationLanguages.PrimaryLanguageOverride = index == 0 ? _defaultCode : PreferredLanguage.Code);
 			return true;
 		}
 
@@ -116,7 +132,8 @@ namespace Files.App.Helpers
 			PreferredLanguage = SupportedLanguages[index];
 
 			// Update the primary language override
-			ApplicationLanguages.PrimaryLanguageOverride = index == 0 ? _defaultCode : PreferredLanguage.Code;
+			SafetyExtensions.IgnoreExceptions(() =>
+				ApplicationLanguages.PrimaryLanguageOverride = index == 0 ? _defaultCode : PreferredLanguage.Code);
 			return true;
 		}
 	}

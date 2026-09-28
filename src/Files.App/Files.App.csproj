@@ -45,6 +45,16 @@
         <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     </PropertyGroup>
 
+    <!--  Unpackaged build for direct exe debugging: msbuild -p:FilesUnpackaged=true  -->
+    <PropertyGroup Condition="'$(FilesUnpackaged)' == 'true'">
+        <WindowsPackageType>None</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <EnableMsixTooling>false</EnableMsixTooling>
+        <!--  Separate output to avoid clobbering the packaged build in bin\$(Platform)\$(Configuration)  -->
+        <OutDir>bin\Unpackaged\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\</OutDir>
+        <IntermediateOutputPath>obj\Unpackaged\$(Platform)\$(Configuration)\$(TargetFramework)</IntermediateOutputPath>
+    </PropertyGroup>
+
     <PropertyGroup Condition="'$(SENTRY_AUTH_TOKEN)' != ''">
         <SentryOrg>files-org</SentryOrg>
         <SentryProject>files-app</SentryProject>

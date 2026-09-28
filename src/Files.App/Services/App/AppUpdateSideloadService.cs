@@ -29,13 +29,13 @@ namespace Files.App.Services
 
 		private ILogger? Logger { get; } = Ioc.Default.GetRequiredService<ILogger<App>>();
 
-		private string PackageName { get; } = Package.Current.Id.Name;
+		private string PackageName { get; } = PackageCompat.Name;
 
 		private Version PackageVersion { get; } = new(
-			Package.Current.Id.Version.Major,
-			Package.Current.Id.Version.Minor,
-			Package.Current.Id.Version.Build,
-			Package.Current.Id.Version.Revision);
+			PackageCompat.Version.Major,
+			PackageCompat.Version.Minor,
+			PackageCompat.Version.Build,
+			PackageCompat.Version.Revision);
 
 		private bool _isUpdateAvailable;
 		public bool IsUpdateAvailable

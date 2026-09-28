@@ -143,7 +143,7 @@ namespace Files.App.Utils.Taskbar
 		public SystemTrayIcon()
 		{
 			_Icon = new(AppLifecycleHelper.AppIconPath);
-			_Tooltip = Package.Current.DisplayName;
+			_Tooltip = PackageCompat.DisplayName;
 			_taskbarRestartMessageId = PInvoke.RegisterWindowMessage("TaskbarCreated");
 
 			Id = _trayIconGuid;

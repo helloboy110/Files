@@ -26,7 +26,7 @@ namespace Files.App.Helpers
 	/// </summary>
 	public static class AppLifecycleHelper
 	{
-		private readonly static string AppInformationKey = @$"Software\Files Community\{Package.Current.Id.Name}\v1\AppInformation";
+		private readonly static string AppInformationKey = @$"Software\Files Community\{PackageCompat.Name}\v1\AppInformation";
 
 		/// <summary>
 		/// Gets the value that indicates whether the app is updated.
@@ -81,13 +81,13 @@ namespace Files.App.Helpers
 		/// Gets application package version.
 		/// </summary>
 		public static Version AppVersion { get; } =
-			new(Package.Current.Id.Version.Major, Package.Current.Id.Version.Minor, Package.Current.Id.Version.Build, Package.Current.Id.Version.Revision);
+			new(PackageCompat.Version.Major, PackageCompat.Version.Minor, PackageCompat.Version.Build, PackageCompat.Version.Revision);
 
 		/// <summary>
 		/// Gets application icon path.
 		/// </summary>
 		public static string AppIconPath { get; } =
-			SystemIO.Path.Combine(Package.Current.InstalledLocation.Path, AppEnvironment switch
+			SystemIO.Path.Combine(PackageCompat.InstalledPath, AppEnvironment switch
 			{
 				AppEnvironment.Dev => Constants.AssetPaths.DevLogo,
 				AppEnvironment.SideloadPreview or AppEnvironment.StorePreview => Constants.AssetPaths.PreviewLogo,
@@ -216,7 +216,7 @@ namespace Files.App.Helpers
 			{
 				options.Dsn = Constants.AutomatedWorkflowInjectionKeys.SentrySecret;
 				options.AutoSessionTracking = true;
-				var packageVersion = Package.Current.Id.Version;
+				var packageVersion = PackageCompat.Version;
 				options.Release = $"{packageVersion.Major}.{packageVersion.Minor}.{packageVersion.Build}";
 				options.TracesSampleRate = 0.10;
 				// Active-session reports must not be sampled away or their sums undercount;
@@ -225,7 +225,7 @@ namespace Files.App.Helpers
 					context.TransactionContext.Operation == ActiveSessionTracker.TransactionOperation ? 1.0 : null;
 				options.ProfilesSampleRate = 0.05;
 				options.Environment = AppEnvironment == AppEnvironment.StorePreview || AppEnvironment == AppEnvironment.SideloadPreview ? "preview" : "production";
-				options.CacheDirectoryPath = ApplicationData.Current.LocalFolder.Path;
+				options.CacheDirectoryPath = AppDataCompat.LocalFolderPath;
 
 				options.DisableWinUiUnhandledExceptionIntegration();
 
@@ -304,7 +304,7 @@ namespace Files.App.Helpers
 		public static IServiceProvider ConfigureHost(AppModel appModel)
 		{
 			var services = new ServiceCollection();
-			var fileLoggerProvider = new FileLoggerProvider(Path.Combine(ApplicationData.Current.LocalFolder.Path, "debug.log"));
+			var fileLoggerProvider = new FileLoggerProvider(Path.Combine(AppDataCompat.LocalFolderPath, "debug.log"));
 
 			services.AddSingleton(fileLoggerProvider);
 

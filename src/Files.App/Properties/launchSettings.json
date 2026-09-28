@@ -2,6 +2,9 @@
   "profiles": {
     "Run": {
       "commandName": "MsixPackage"
+    },
+    "Unpackaged (direct exe)": {
+      "commandName": "Project"
     }
   }
 }
