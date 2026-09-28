@@ -717,12 +717,14 @@ namespace Files.App.Utils.Storage
 
 				if (isUtf16)
 				{
+					stream.Seek(0, SeekOrigin.Begin);
 					using var reader = new StreamReader(stream, Encoding.Unicode);
 					var contents = reader.ReadToEnd();
 					return contents.Contains(queryText, StringComparison.OrdinalIgnoreCase);
 				}
 
 				// Try strict UTF-8 first, then fall back to the system ANSI code page (e.g. GBK)
+				stream.Seek(0, SeekOrigin.Begin);
 				var bytes = new byte[stream.Length];
 				stream.ReadExactly(bytes);
 
