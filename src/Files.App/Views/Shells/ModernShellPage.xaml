@@ -28,6 +28,10 @@
 					<Thickness x:Key="Local.ActivePane.BorderThickness">3</Thickness>
 				</ResourceDictionary>
 			</ResourceDictionary.ThemeDictionaries>
+			<wctconverters:BoolToObjectConverter
+				x:Key="PaneTabSelectionBackgroundConverter"
+				FalseValue="Transparent"
+				TrueValue="{ThemeResource SubtleFillColorSecondaryBrush}" />
 		</ResourceDictionary>
 	</local:BaseShellPage.Resources>
 
@@ -46,12 +50,13 @@
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
 			<RowDefinition Height="*" />
 			<RowDefinition Height="Auto" />
 		</Grid.RowDefinitions>
 
 		<Image
-			Grid.RowSpan="3"
+			Grid.RowSpan="5"
 			HorizontalAlignment="{x:Bind ShellViewModel.FolderBackgroundImageHorizontalAlignment, Mode=OneWay}"
 			VerticalAlignment="{x:Bind ShellViewModel.FolderBackgroundImageVerticalAlignment, Mode=OneWay}"
 			Opacity="{x:Bind ShellViewModel.FolderBackgroundImageOpacity, Mode=OneWay}"
@@ -61,7 +66,7 @@
 		<!--  Swipe Backward Icon  -->
 		<Border
 			x:Name="BackIcon"
-			Grid.RowSpan="3"
+			Grid.RowSpan="5"
 			Width="48"
 			Height="48"
 			Margin="-4,0,0,0"
@@ -83,7 +88,7 @@
 		<!--  Swipe Forward Icon  -->
 		<Border
 			x:Name="ForwardIcon"
-			Grid.RowSpan="3"
+			Grid.RowSpan="5"
 			Width="48"
 			Height="48"
 			Margin="0,0,-4,0"
@@ -102,10 +107,73 @@
 				Symbol="Forward" />
 		</Border>
 
+		<!--  Pane tabs (QDir-style per-pane folder tabs)  -->
+		<Grid
+			x:Name="PaneTabStrip"
+			Grid.Row="0"
+			Padding="8,4,8,0"
+			Background="{ThemeResource LayerFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+			BorderThickness="0,0,0,1"
+			Visibility="{x:Bind ShowPaneTabStrip, Mode=OneWay, FallbackValue=Collapsed}">
+			<StackPanel Orientation="Horizontal" Spacing="4">
+				<ItemsControl ItemsSource="{x:Bind PaneTabs, Mode=OneWay}">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<StackPanel Orientation="Horizontal" Spacing="2" />
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate x:DataType="local:PaneTabItem">
+							<Grid
+								Height="26"
+								MinWidth="88"
+								MaxWidth="150"
+								Padding="8,0,2,0"
+								Background="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource PaneTabSelectionBackgroundConverter}}"
+								CornerRadius="6,6,0,0"
+								PointerPressed="PaneTab_PointerPressed">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="*" />
+									<ColumnDefinition Width="Auto" />
+								</Grid.ColumnDefinitions>
+								<TextBlock
+									VerticalAlignment="Center"
+									FontSize="12"
+									Text="{x:Bind Name, Mode=OneWay}"
+									TextTrimming="CharacterEllipsis" />
+								<Button
+									Grid.Column="1"
+									Width="20"
+									Height="20"
+									Padding="0"
+									Background="Transparent"
+									BorderThickness="0"
+									Click="PaneTabClose_Click"
+									Tag="{x:Bind}">
+									<FontIcon FontSize="8" Glyph="&#xE711;" />
+								</Button>
+							</Grid>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+				<Button
+					Width="26"
+					Height="26"
+					Padding="0"
+					VerticalAlignment="Center"
+					Background="Transparent"
+					BorderThickness="0"
+					Click="AddPaneTab_Click">
+					<FontIcon FontSize="12" Glyph="&#xE710;" />
+				</Button>
+			</StackPanel>
+		</Grid>
+
 		<!--  Search header  -->
 		<Grid
 			x:Name="SearchHeader"
-			Grid.Row="0"
+			Grid.Row="1"
 			Padding="26,16,16,16"
 			BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
 			BorderThickness="0,0,0,1"
@@ -128,7 +196,7 @@
 		<!--  Filter header  -->
 		<Grid
 			x:Name="FilterHeader"
-			Grid.Row="1"
+			Grid.Row="2"
 			Padding="26,8,12,8"
 			BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
 			BorderThickness="0,0,0,1"
@@ -159,7 +227,7 @@
 		<!--  Shell Frame  -->
 		<Frame
 			x:Name="ItemDisplayFrame"
-			Grid.Row="2"
+			Grid.Row="3"
 			x:FieldModifier="public"
 			Navigated="ItemDisplayFrame_Navigated"
 			TabIndex="1" />
@@ -167,7 +235,7 @@
 		<!--  Status Bar  -->
 		<uc:StatusBar
 			x:Name="StatusBar"
-			Grid.Row="3"
+			Grid.Row="4"
 			ShowInfoText="{x:Bind IsStatusBarVisible, Mode=OneWay}"
 			Visibility="{x:Bind IsStatusBarVisible, Mode=OneWay}" />
 

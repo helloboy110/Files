@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using Windows.System;
 
@@ -33,6 +35,34 @@ namespace Files.App.Views.Shells
 				}
 			}
 		}
+
+		// Pane tabs (QDir-style per-pane folder tabs)
+
+		public ObservableCollection<PaneTabItem> PaneTabs { get; } = [];
+
+		private PaneTabItem? _ActivePaneTab;
+		public PaneTabItem? ActivePaneTab
+		{
+			get => _ActivePaneTab;
+			set
+			{
+				if (_ActivePaneTab != value)
+				{
+					if (_ActivePaneTab is not null)
+						_ActivePaneTab.IsSelected = false;
+
+					_ActivePaneTab = value;
+
+					if (_ActivePaneTab is not null)
+						_ActivePaneTab.IsSelected = true;
+
+					NotifyPropertyChanged(nameof(ActivePaneTab));
+				}
+			}
+		}
+
+		public bool ShowPaneTabStrip
+			=> (PaneHolder?.IsMultiPaneActive ?? false) || PaneTabs.Count > 1;
 
 		public ModernShellPage() : base(new CurrentInstanceViewModel())
 		{
@@ -114,6 +144,11 @@ namespace Files.App.Views.Shells
 		protected override void OnNavigationParamsChanged()
 		{
 			var navParams = NavParams;
+
+			// Ensure the pane always has at least one tab tracking the current folder
+			if (PaneTabs.Count is 0)
+				AddPaneTabCore(string.IsNullOrEmpty(navParams?.NavPath) ? "Home" : navParams!.NavPath);
+
 			if (string.IsNullOrEmpty(navParams?.NavPath) || navParams.NavPath == "Home")
 			{
 				NavigateHome();
@@ -153,6 +188,10 @@ namespace Files.App.Views.Shells
 				await UpdatePathUIToWorkingDirectoryAsync(null, e.Name);
 			else
 				await UpdatePathUIToWorkingDirectoryAsync(e.Path);
+
+			// Keep the active pane tab in sync with the folder being browsed
+			if (ActivePaneTab is not null)
+				ActivePaneTab.Path = e.IsLibrary ? e.Name ?? "Home" : e.Path;
 		}
 
 		private async void ItemDisplayFrame_Navigated(object sender, NavigationEventArgs e)
@@ -262,6 +301,92 @@ namespace Files.App.Views.Shells
 					},
 					new SuppressNavigationTransitionInfo());
 			}
+		}
+
+		// Pane tabs interaction (QDir-style)
+
+		protected override void OnPaneHolderStateChanged(PropertyChangedEventArgs e)
+		{
+			if (e.PropertyName is nameof(IShellPanesPage.IsMultiPaneActive) or nameof(IShellPanesPage.ActivePane))
+				NotifyPropertyChanged(nameof(ShowPaneTabStrip));
+		}
+
+		private PaneTabItem AddPaneTabCore(string path)
+		{
+			var tab = new PaneTabItem(string.IsNullOrEmpty(path) ? "Home" : path);
+			PaneTabs.Add(tab);
+			ActivePaneTab = tab;
+			NotifyPropertyChanged(nameof(ShowPaneTabStrip));
+			return tab;
+		}
+
+		private void ActivatePaneTab(PaneTabItem tab)
+		{
+			if (tab is null)
+				return;
+
+			ActivePaneTab = tab;
+
+			var current = ShellViewModel?.WorkingDirectory;
+			var sameAsHome = tab.Path is "Home" && (string.IsNullOrEmpty(current) || current == "Home");
+			if (!sameAsHome && !string.Equals(current, tab.Path, StringComparison.OrdinalIgnoreCase))
+				NavParams = new NavigationParams { NavPath = tab.Path };
+		}
+
+		private void ClosePaneTab(PaneTabItem tab)
+		{
+			if (tab is null)
+				return;
+
+			var index = PaneTabs.IndexOf(tab);
+			if (index < 0)
+				return;
+
+			// Keep at least one tab per pane; reset it to Home instead
+			if (PaneTabs.Count is 1)
+			{
+				if (ActivePaneTab == tab)
+					NavParams = new NavigationParams { NavPath = "Home" };
+				return;
+			}
+
+			PaneTabs.RemoveAt(index);
+
+			if (ActivePaneTab == tab)
+			{
+				var next = PaneTabs[Math.Min(index, PaneTabs.Count - 1)];
+				ActivePaneTab = next;
+				NavParams = new NavigationParams { NavPath = next.Path };
+			}
+
+			NotifyPropertyChanged(nameof(ShowPaneTabStrip));
+		}
+
+		private void PaneTab_PointerPressed(object sender, PointerRoutedEventArgs e)
+		{
+			if (sender is FrameworkElement { DataContext: PaneTabItem tab })
+			{
+				var point = e.GetCurrentPoint(this);
+				if (point.Properties.IsMiddleButtonPressed)
+					ClosePaneTab(tab);
+				else if (point.Properties.IsLeftButtonPressed)
+					ActivatePaneTab(tab);
+
+				e.Handled = true;
+			}
+		}
+
+		private void PaneTabClose_Click(object sender, RoutedEventArgs e)
+		{
+			if ((sender as FrameworkElement)?.Tag is PaneTabItem tab)
+				ClosePaneTab(tab);
+		}
+
+		private void AddPaneTab_Click(object sender, RoutedEventArgs e)
+		{
+			// New pane tabs duplicate the folder being browsed (like QDir)
+			var current = ShellViewModel?.WorkingDirectory;
+			AddPaneTabCore(string.IsNullOrEmpty(current) ? "Home" : current!);
 		}
 
 		public override void Dispose()

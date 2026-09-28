@@ -249,6 +249,15 @@ namespace Files.App.Views.Shells
 		{
 			if (e.PropertyName is nameof(IShellPanesPage.IsMultiPaneActive) or nameof(IShellPanesPage.ActivePane))
 				NotifyPropertyChanged(nameof(IsStatusBarVisible));
+
+			OnPaneHolderStateChanged(e);
+		}
+
+		/// <summary>
+		/// Called when a property of the pane holder changes (e.g. pane count or active pane).
+		/// </summary>
+		protected virtual void OnPaneHolderStateChanged(PropertyChangedEventArgs e)
+		{
 		}
 
 		private void AppearanceSettingsService_PropertyChanged(object? sender, PropertyChangedEventArgs e)
