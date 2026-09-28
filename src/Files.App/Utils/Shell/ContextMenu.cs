@@ -13,6 +13,7 @@ using Windows.Win32.System.Memory;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 using Windows.Win32.UI.WindowsAndMessaging;
+using WNDPROC = Windows.Win32.Extras.ManagedWNDPROC;
 
 namespace Files.App.Utils.Shell
 {
@@ -163,6 +164,237 @@ namespace Files.App.Utils.Shell
 			if (contextMenu is null)
 				ContextMenuWorkerPool.Return(worker);
 			return contextMenu;
+		}
+
+		// Native (Win32) popup menu support
+
+		private const string NativeMenuWindowClassName = "FilesNativeContextMenuHost";
+		private static readonly WNDPROC NativeMenuWindowProc = HandleNativeMenuWindowProc;
+		private static bool nativeMenuClassRegistered;
+
+		// The shell handler of the menu currently shown on this thread. The menu window's
+		// messages arrive on the worker thread that owns the window, so a thread-static slot
+		// keeps concurrent workers isolated.
+		[ThreadStatic]
+		private static IContextMenu? currentNativeMenuHandler;
+
+		/// <summary>
+		/// Shows the native Win32 shell context menu (as Explorer does) for the given files at the
+		/// screen position and invokes the command the user picks.
+		/// </summary>
+		/// <param name="filePathList">Paths of the items the menu targets.</param>
+		/// <param name="screenX">Menu position in physical screen pixels.</param>
+		/// <param name="screenY">Menu position in physical screen pixels.</param>
+		/// <param name="ownerWindowHandle">Handle of the app window that owns the interaction.</param>
+		/// <returns>Whether a shell command was invoked.</returns>
+		public static async Task<bool> ShowNativeMenuAtAsync(string?[] filePathList, int screenX, int screenY, nint ownerWindowHandle)
+		{
+			var worker = ContextMenuWorkerPool.Rent();
+			try
+			{
+				return await worker.Thread.PostMethod(() =>
+				{
+					var shellItems = new List<ShellItem>();
+					try
+					{
+						foreach (string path in filePathList.WhereNotNull().Where(path => !string.IsNullOrEmpty(path)))
+							shellItems.Add(ShellFolderExtensions.GetShellItemFromPathOrPIDL(path));
+
+						if (shellItems.Count is 0)
+							return false;
+
+						return ShowNativeMenuCore([.. shellItems], screenX, screenY, ownerWindowHandle);
+					}
+					catch
+					{
+						return false;
+					}
+					finally
+					{
+						foreach (ShellItem item in shellItems)
+							item.Dispose();
+					}
+				});
+			}
+			finally
+			{
+				ContextMenuWorkerPool.Return(worker);
+			}
+		}
+
+		private static unsafe bool ShowNativeMenuCore(ShellItem[] shellItems, int screenX, int screenY, nint ownerWindowHandle)
+		{
+			var ownerHwnd = new HWND(ownerWindowHandle);
+			if (ownerHwnd.IsNull || shellItems.Length is 0)
+				return false;
+
+			ITEMIDLIST** pidls = null;
+			HMENU menu = default;
+			HWND menuWindow = default;
+			IContextMenu? contextMenu = null;
+			uint currentThreadId = PInvoke.GetCurrentThreadId();
+			uint ownerThreadId = PInvoke.GetWindowThreadProcessId(ownerHwnd, out _);
+			bool threadsAttached = false;
+
+			try
+			{
+				pidls = (ITEMIDLIST**)NativeMemory.AllocZeroed((nuint)shellItems.Length, (nuint)sizeof(ITEMIDLIST*));
+				for (var index = 0; index < shellItems.Length; index++)
+					PInvoke.SHGetIDListFromObject(shellItems[index].IShellItem, out pidls[index]).ThrowOnFailure();
+
+				PInvoke.SHCreateShellItemArrayFromIDLists((uint)shellItems.Length, pidls, out IShellItemArray itemArray).ThrowOnFailure();
+				contextMenu = BindContextMenu(itemArray);
+
+				menu = PInvoke.CreatePopupMenu();
+				contextMenu.QueryContextMenu(menu, 0, 1, 0x7FFF, PInvoke.CMF_NORMAL).ThrowOnFailure();
+
+				// The menu is owned by a hidden window on this worker STA thread so that
+				// WM_INITMENUPOPUP / WM_MEASUREITEM / WM_DRAWITEM (needed by handlers that populate
+				// or owner-draw their items) are delivered here and can be forwarded to the handler.
+				menuWindow = CreateNativeMenuWindow();
+				if (menuWindow.IsNull)
+					return false;
+
+				currentNativeMenuHandler = contextMenu;
+
+				var desktopWindows = Win32Helper.GetDesktopWindows();
+
+				// Sharing the input queue with the (foreground) UI thread is required: without it
+				// the system immediately dismisses menus shown from a background thread.
+				threadsAttached = ownerThreadId != 0 && ownerThreadId != currentThreadId
+					&& PInvoke.AttachThreadInput(currentThreadId, ownerThreadId, true);
+				try
+				{
+					PInvoke.SetForegroundWindow(ownerHwnd);
+
+					var flags =
+						TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD |
+						TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON |
+						(PInvoke.GetSystemMetricsForDpi(SYSTEM_METRICS_INDEX.SM_MENUDROPALIGNMENT, PInvoke.GetDpiForWindow(ownerHwnd)) != 0
+							? TRACK_POPUP_MENU_FLAGS.TPM_RIGHTALIGN
+							: 0);
+
+					var command = PInvoke.TrackPopupMenuEx(menu, (uint)flags, screenX, screenY, menuWindow, null).Value;
+					if (command is 0)
+						return false;
+
+					var commandInfo = default(CMINVOKECOMMANDINFOEX);
+					commandInfo.cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX);
+					commandInfo.fMask = CmicMaskUnicode;
+					commandInfo.lpVerb = (PCSTR)(byte*)(nuint)(uint)command;
+					commandInfo.lpVerbW = (PCWSTR)(char*)(nuint)(uint)command;
+					commandInfo.nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL;
+					contextMenu.InvokeCommand((CMINVOKECOMMANDINFO*)&commandInfo).ThrowOnFailure();
+
+					return true;
+				}
+				finally
+				{
+					currentNativeMenuHandler = null;
+
+					if (threadsAttached)
+						PInvoke.AttachThreadInput(currentThreadId, ownerThreadId, false);
+
+					// Give focus back to windows that existed before the command ran, so a newly
+					// launched window keeps the foreground.
+					Win32Helper.BringToForeground(desktopWindows);
+				}
+			}
+			catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or InvalidCastException)
+			{
+				return false;
+			}
+			finally
+			{
+				if (!menuWindow.IsNull)
+					PInvoke.DestroyWindow(menuWindow);
+
+				if (!menu.IsNull)
+					PInvoke.DestroyMenu(menu);
+
+				if (pidls is not null)
+				{
+					for (var index = 0; index < shellItems.Length; index++)
+						PInvoke.CoTaskMemFree(pidls[index]);
+					NativeMemory.Free(pidls);
+				}
+
+				if ((object?)contextMenu is ComObject comObject)
+					comObject.FinalRelease();
+			}
+		}
+
+		private static unsafe HWND CreateNativeMenuWindow()
+		{
+			var moduleHandle = PInvoke.GetModuleHandle(default(PCWSTR));
+
+			if (!nativeMenuClassRegistered)
+			{
+				var procPointer = Marshal.GetFunctionPointerForDelegate(NativeMenuWindowProc);
+				var windowProc = (delegate* unmanaged[Stdcall]<HWND, uint, WPARAM, LPARAM, LRESULT>)procPointer;
+
+				fixed (char* className = NativeMenuWindowClassName)
+				{
+					var windowClass = new WNDCLASSEXW
+					{
+						cbSize = (uint)sizeof(WNDCLASSEXW),
+						lpfnWndProc = windowProc,
+						hInstance = moduleHandle,
+						lpszClassName = className,
+					};
+
+					// Registering again fails with ERROR_CLASS_ALREADY_EXISTS, which is harmless:
+					// the static delegate keeps the registered proc thunk alive for the process.
+					PInvoke.RegisterClassEx(in windowClass);
+				}
+
+				nativeMenuClassRegistered = true;
+			}
+
+			// A never-shown top-level window; only its messages matter.
+			return PInvoke.CreateWindowEx(
+				WINDOW_EX_STYLE.WS_EX_LEFT,
+				NativeMenuWindowClassName,
+				string.Empty,
+				WINDOW_STYLE.WS_OVERLAPPED,
+				0,
+				0,
+				1,
+				1,
+				default,
+				null,
+				null,
+				null);
+		}
+
+		private static LRESULT HandleNativeMenuWindowProc(HWND hWnd, uint uMsg, WPARAM wParam, LPARAM lParam)
+		{
+			if (uMsg is PInvoke.WM_INITMENUPOPUP or PInvoke.WM_MEASUREITEM or PInvoke.WM_DRAWITEM)
+			{
+				var handler = currentNativeMenuHandler;
+				if (handler is not null && ForwardMenuMessage(handler, uMsg, wParam, lParam))
+					return default;
+			}
+
+			return PInvoke.DefWindowProc(hWnd, uMsg, wParam, lParam);
+		}
+
+		private static unsafe bool ForwardMenuMessage(IContextMenu handler, uint message, WPARAM wParam, LPARAM lParam)
+		{
+			try
+			{
+				LRESULT result = default;
+				if (handler is IContextMenu3 contextMenu3)
+					return contextMenu3.HandleMenuMsg2(message, wParam, lParam, &result).Succeeded;
+				if (handler is IContextMenu2 contextMenu2)
+					return contextMenu2.HandleMenuMsg(message, wParam, lParam).Succeeded;
+			}
+			catch (Exception ex) when (ex is COMException or InvalidCastException or NotImplementedException)
+			{
+				// The handler cannot process the message; let DefWindowProc run instead.
+			}
+
+			return false;
 		}
 
 		private static unsafe ContextMenu? Create(ShellItem[] shellItems, uint flags, ContextMenuWorkerPool.Worker worker, Func<string?, bool>? itemFilter)

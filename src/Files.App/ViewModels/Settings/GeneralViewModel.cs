@@ -109,7 +109,10 @@ namespace Files.App.ViewModels.Settings
 			// ShellPaneArrangement
 			ShellPaneArrangementTypes.Add(ShellPaneArrangement.Vertical, Strings.Vertical.GetLocalizedResource());
 			ShellPaneArrangementTypes.Add(ShellPaneArrangement.Horizontal, Strings.Horizontal.GetLocalizedResource());
-			SelectedShellPaneArrangementType = ShellPaneArrangementTypes[UserSettingsService.GeneralSettingsService.ShellPaneArrangementOption];
+			ShellPaneArrangementTypes.Add(ShellPaneArrangement.Grid, Strings.ArrangePanesGrid.GetLocalizedResource());
+			SelectedShellPaneArrangementType = ShellPaneArrangementTypes.TryGetValue(UserSettingsService.GeneralSettingsService.ShellPaneArrangementOption, out var arrangementType)
+				? arrangementType
+				: ShellPaneArrangementTypes[ShellPaneArrangement.Vertical];
 
 			InitStartupSettingsRecentFoldersFlyout();
 		}
@@ -545,6 +548,19 @@ namespace Files.App.ViewModels.Settings
 				if (value != UserSettingsService.GeneralSettingsService.ShowSendToMenu)
 				{
 					UserSettingsService.GeneralSettingsService.ShowSendToMenu = value;
+					OnPropertyChanged();
+				}
+			}
+		}
+
+		public bool ShowWindowsContextMenu
+		{
+			get => UserSettingsService.GeneralSettingsService.ShowWindowsContextMenu;
+			set
+			{
+				if (value != UserSettingsService.GeneralSettingsService.ShowWindowsContextMenu)
+				{
+					UserSettingsService.GeneralSettingsService.ShowWindowsContextMenu = value;
 					OnPropertyChanged();
 				}
 			}

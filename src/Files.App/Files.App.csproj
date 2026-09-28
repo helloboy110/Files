@@ -43,6 +43,8 @@
 
     <PropertyGroup>
         <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+        <NuGetAudit>False</NuGetAudit>
+        <UseWindowsForms>False</UseWindowsForms>
     </PropertyGroup>
 
     <!--  Unpackaged build for direct exe debugging: msbuild -p:FilesUnpackaged=true  -->
@@ -77,7 +79,7 @@
         <DirectPInvoke Include="USER32" />
         <_WindowsAppRuntimeBootstrapLibrary Include="@(WindowsAppSdkComponentPackages->'%(FullPath)lib\native\$(Platform)\Microsoft.WindowsAppRuntime.Bootstrap.lib')" />
         <NativeLibrary Include="runtimeobject.lib" />
-        <NativeLibrary Include="@(_WindowsAppRuntimeBootstrapLibrary->Exists())" />
+        <NativeLibrary Include="@(_WindowsAppRuntimeBootstrapLibrary-&gt;Exists())" />
     </ItemGroup>
   
     <ItemGroup>
@@ -176,8 +178,6 @@
     <!-- Files.App.Server is an out-of-process COM server, not a project reference.
          Build it before we resolve assemblies so its .winmd is available for CsWinRT. -->
     <Target Name="BuildFilesAppServer" BeforeTargets="ResolveAssemblyReferences">
-        <MSBuild Projects="..\Files.App.Server\Files.App.Server.csproj"
-                 Targets="Build"
-                 Properties="Configuration=$(Configuration);Platform=$(Platform)" />
+        <MSBuild Projects="..\Files.App.Server\Files.App.Server.csproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform)" />
     </Target>
 </Project>

@@ -313,6 +313,11 @@
 						<ToggleSwitch AutomationProperties.Name="{helpers:ResourceString Name=ShowSendToMenu}" IsOn="{x:Bind ViewModel.ShowSendToMenu, Mode=TwoWay}" />
 					</wctcontrols:SettingsCard>
 
+					<!--  Native Windows context menu  -->
+					<wctcontrols:SettingsCard Description="{helpers:ResourceString Name=ShowWindowsContextMenuDescription}" Header="{helpers:ResourceString Name=ShowWindowsContextMenu}">
+						<ToggleSwitch AutomationProperties.Name="{helpers:ResourceString Name=ShowWindowsContextMenu}" IsOn="{x:Bind ViewModel.ShowWindowsContextMenu, Mode=TwoWay}" />
+					</wctcontrols:SettingsCard>
+
 					<!--  Open in Windows Terminal  -->
 					<wctcontrols:SettingsCard Header="{helpers:ResourceString Name=ShowOpenTerminal}">
 						<ToggleSwitch AutomationProperties.Name="{helpers:ResourceString Name=ShowOpenTerminal}" IsOn="{x:Bind ViewModel.ShowOpenTerminal, Mode=TwoWay}" />

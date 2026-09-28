@@ -281,6 +281,12 @@ namespace Files.App.Data.Contracts
 		bool ShowSendToMenu { get; set; }
 
 		/// <summary>
+		/// Gets or sets a value indicating whether or not to show the native Windows context menu
+		/// (hold Shift to temporarily switch back to the Files menu).
+		/// </summary>
+		bool ShowWindowsContextMenu { get; set; }
+
+		/// <summary>
 		/// Gets or sets a value indicating whether or not to leave app running in the background.
 		/// </summary>
 		bool LeaveAppRunning { get; set; }

@@ -6,6 +6,7 @@ using Files.App.Controls;
 using Files.App.Helpers.ContextFlyouts;
 using Files.App.UserControls.Menus;
 using Files.App.ViewModels.Layouts;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -84,6 +85,7 @@ namespace Files.App.Views.Layouts
 		private Point contextInvocationPosition;
 		private bool contextInvocationValid;
 		private TypedEventHandler<UIElement, ContextRequestedEventArgs>? contextRequestedHandler;
+		private RightTappedEventHandler? nativeMenuRightTappedHandler;
 
 		// Properties
 
@@ -633,11 +635,62 @@ namespace Files.App.Views.Layouts
 			AddHandler(UIElement.ContextRequestedEvent, contextRequestedHandler, true);
 			ItemContextFlyoutHost.InvocationPointProvider = () => contextInvocationValid ? (this, contextInvocationPosition) : null;
 			BaseContextFlyoutHost.InvocationPointProvider = () => contextInvocationValid ? (this, contextInvocationPosition) : null;
+
+			// Empty-background right-clicks for the native Windows context menu. Item right-clicks are
+			// intercepted in FileListItem_RightTapped, so this only sees unhandled (background) events.
+			nativeMenuRightTappedHandler = OnPageRightTappedForNativeMenu;
+			AddHandler(UIElement.RightTappedEvent, nativeMenuRightTappedHandler, false);
 		}
 
 		private void OnContextRequestedForPlacement(UIElement sender, ContextRequestedEventArgs e)
 		{
 			contextInvocationValid = e.TryGetPosition(this, out contextInvocationPosition);
+		}
+
+		// Native Windows context menu support
+
+		private bool ShouldShowNativeContextMenu()
+		{
+			// The native menu replaces the Files flyout when enabled; Shift temporarily swaps back (and
+			// brings the native menu up when the setting is off).
+			var shiftPressed = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+				.HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+			return UserSettingsService.GeneralSettingsService.ShowWindowsContextMenu != shiftPressed;
+		}
+
+		private bool CanShowNativeMenuForCurrentPage()
+		{
+			var instanceViewModel = ParentShellPageInstance?.InstanceViewModel;
+			return instanceViewModel is not null
+				&& !instanceViewModel.IsPageTypeZipFolder
+				&& !instanceViewModel.IsPageTypeFtp;
+		}
+
+		private async Task ShowNativeContextMenuAtCursorAsync(string?[] paths)
+		{
+			try
+			{
+				PInvoke.GetCursorPos(out var cursor);
+				await Utils.Shell.ContextMenu.ShowNativeMenuAtAsync(paths, cursor.X, cursor.Y, MainWindow.Instance.WindowHandle);
+			}
+			catch (Exception ex)
+			{
+				App.Logger?.LogWarning(ex, "Failed to show the native context menu.");
+			}
+		}
+
+		private void OnPageRightTappedForNativeMenu(object sender, RightTappedRoutedEventArgs e)
+		{
+			if (!ShouldShowNativeContextMenu() || !CanShowNativeMenuForCurrentPage())
+				return;
+
+			var parentShellPage = ParentShellPageInstance;
+			var workingDirectory = parentShellPage?.GetRequiredShellViewModel().WorkingDirectory;
+			if (string.IsNullOrEmpty(workingDirectory))
+				return;
+
+			e.Handled = true;
+			_ = ShowNativeContextMenuAtCursorAsync([workingDirectory]);
 		}
 
 		private async Task<IShellPage> EnsurePageIsCurrentAsync()
@@ -923,6 +976,11 @@ namespace Files.App.Views.Layouts
 			{
 				RemoveHandler(UIElement.ContextRequestedEvent, contextRequestedHandler);
 				contextRequestedHandler = null;
+			}
+			if (nativeMenuRightTappedHandler is not null)
+			{
+				RemoveHandler(UIElement.RightTappedEvent, nativeMenuRightTappedHandler);
+				nativeMenuRightTappedHandler = null;
 			}
 			ItemContextFlyoutHost.InvocationPointProvider = null;
 			BaseContextFlyoutHost.InvocationPointProvider = null;
@@ -1557,6 +1615,22 @@ namespace Files.App.Views.Layouts
 
 			if (rightClickedItem is not null && !((SelectorItem)sender).IsSelected)
 				ItemManipulationModel.SetSelectedItem(rightClickedItem);
+
+			// Native Windows context menu: show the shell menu directly instead of the Files flyout.
+			// Handled here (before the built-in ContextRequested handling) so the flyout stays closed.
+			if (ShouldShowNativeContextMenu() && CanShowNativeMenuForCurrentPage())
+			{
+				var paths = SelectedItems?
+					.Where(x => !string.IsNullOrEmpty(x.ItemPath))
+					.Select(x => x.ItemPath)
+					.ToArray();
+
+				if (paths is { Length: > 0 })
+				{
+					e.Handled = true;
+					_ = ShowNativeContextMenuAtCursorAsync(paths);
+				}
+			}
 		}
 
 		protected void InitializeDrag(UIElement container, ListedItem item)

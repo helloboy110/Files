@@ -2393,6 +2393,12 @@
   <data name="ShowSendToMenu" xml:space="preserve">
     <value>Show send to menu</value>
   </data>
+  <data name="ShowWindowsContextMenu" xml:space="preserve">
+    <value>Use Windows context menu</value>
+  </data>
+  <data name="ShowWindowsContextMenuDescription" xml:space="preserve">
+    <value>Right-click shows the native Windows context menu. Hold Shift to temporarily show the Files menu.</value>
+  </data>
   <data name="ShowOpenInNewTab" xml:space="preserve">
     <value>Show option to open folders in a new tab</value>
   </data>
