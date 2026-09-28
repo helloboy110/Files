@@ -421,16 +421,9 @@ namespace Files.App.Utils.Storage
 
 				if (IsContentQuery)
 				{
-					// Content search: use the index when available, fall back to scanning files manually
-					var indexed = workingFolder && await IsFolderIndexedAsync(workingFolder.Result);
-					if (indexed)
-					{
-						await SearchAsync(workingFolder.Result!, results, token);
-					}
-					else
-					{
-						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
-					}
+					// Windows Search cannot be trusted for content on partially indexed folders
+					// (it silently returns nothing for uncrawled locations), so always scan files
+					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
 				}
 				else if (IsAQSQuery)
 				{
@@ -676,26 +669,6 @@ namespace Files.App.Utils.Storage
 			else
 			{
 				hSubDir?.Dispose();
-			}
-		}
-
-		/// <summary>
-		/// Checks whether a folder is covered by the Windows Search index.
-		/// </summary>
-		private async Task<bool> IsFolderIndexedAsync(BaseStorageFolder? folder)
-		{
-			if (folder is not SystemStorageFolder)
-				return false;
-
-			try
-			{
-				var state = await folder.GetIndexedStateAsync();
-				return state is IndexedState.FullyIndexed or IndexedState.PartiallyIndexed;
-			}
-			catch (Exception ex)
-			{
-				App.Logger.LogWarning(ex, "Failed to query the indexed state of the search folder");
-				return false;
 			}
 		}
 
