@@ -25,6 +25,26 @@ namespace Files.App.Data.EventArguments
 
 		public ShellPaneArrangement ShellPaneArrangement { get; set; }
 
+		/// <summary>
+		/// Paths of the folder tabs inside pane 0, persisted for QDir-style pane tabs; null when pane tabs are not used.
+		/// </summary>
+		public string[]? PaneTabPaths { get; set; }
+
+		/// <summary>
+		/// Paths of the folder tabs inside pane 1, persisted for QDir-style pane tabs; null when pane tabs are not used.
+		/// </summary>
+		public string[]? SecondPaneTabPaths { get; set; }
+
+		/// <summary>
+		/// Paths of the folder tabs inside pane 2, persisted for QDir-style pane tabs; null when pane tabs are not used.
+		/// </summary>
+		public string[]? ThirdPaneTabPaths { get; set; }
+
+		/// <summary>
+		/// Paths of the folder tabs inside pane 3, persisted for QDir-style pane tabs; null when pane tabs are not used.
+		/// </summary>
+		public string[]? FourthPaneTabPaths { get; set; }
+
 		public static bool operator ==(PaneNavigationArguments? a1, PaneNavigationArguments? a2)
 		{
 			if (a1 is null && a2 is null)

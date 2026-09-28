@@ -145,7 +145,31 @@ namespace Files.App.Views.Shells
 		{
 			var navParams = NavParams;
 
-			// Ensure the pane always has at least one tab tracking the current folder
+			// Restore QDir-style pane tabs handed down through the navigation parameters
+			if (navParams?.PaneTabPaths is { Length: > 0 } restorePaths)
+			{
+				PaneTabs.Clear();
+				foreach (var path in restorePaths)
+					AddPaneTabCore(string.IsNullOrEmpty(path) ? "Home" : path);
+
+				// Activate the tab matching the folder being restored, if any
+				var activePath = string.IsNullOrEmpty(navParams.NavPath) ? "Home" : navParams.NavPath;
+				PaneTabItem? activeTab = null;
+				foreach (var tab in PaneTabs)
+				{
+					if (string.Equals(tab.Path, activePath, StringComparison.OrdinalIgnoreCase))
+					{
+						activeTab = tab;
+						break;
+					}
+				}
+				ActivePaneTab = activeTab ?? PaneTabs[PaneTabs.Count - 1];
+
+				NavParams = new NavigationParams { NavPath = navParams.NavPath, SelectItem = navParams.SelectItem };
+				return;
+			}
+
+			// Ensure the pane always has a tab tracking the current folder
 			if (PaneTabs.Count is 0)
 				AddPaneTabCore(string.IsNullOrEmpty(navParams?.NavPath) ? "Home" : navParams!.NavPath);
 
@@ -191,7 +215,10 @@ namespace Files.App.Views.Shells
 
 			// Keep the active pane tab in sync with the folder being browsed
 			if (ActivePaneTab is not null)
+			{
 				ActivePaneTab.Path = e.IsLibrary ? e.Name ?? "Home" : e.Path;
+				NotifyPaneTabsChanged();
+			}
 		}
 
 		private async void ItemDisplayFrame_Navigated(object sender, NavigationEventArgs e)
@@ -317,7 +344,14 @@ namespace Files.App.Views.Shells
 			PaneTabs.Add(tab);
 			ActivePaneTab = tab;
 			NotifyPropertyChanged(nameof(ShowPaneTabStrip));
+			NotifyPaneTabsChanged();
 			return tab;
+		}
+
+		private void NotifyPaneTabsChanged()
+		{
+			if (TabBarItemParameter is not null)
+				RaiseContentChanged(this, TabBarItemParameter);
 		}
 
 		private void ActivatePaneTab(PaneTabItem tab)
@@ -360,6 +394,7 @@ namespace Files.App.Views.Shells
 			}
 
 			NotifyPropertyChanged(nameof(ShowPaneTabStrip));
+			NotifyPaneTabsChanged();
 		}
 
 		private void PaneTab_PointerPressed(object sender, PointerRoutedEventArgs e)

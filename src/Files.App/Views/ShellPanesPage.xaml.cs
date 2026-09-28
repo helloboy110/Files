@@ -133,7 +133,7 @@ namespace Files.App.Views
 						if (_wasRightPaneVisible)
 						{
 							var currentPath = GetPane(1)?.TabBarItemParameter?.NavigationParameter as string ?? "Home";
-							_savedNavParamsRight = new NavigationParams { NavPath = currentPath };
+							_savedNavParamsRight = new NavigationParams { NavPath = currentPath, PaneTabPaths = GetPaneTabPaths(1) };
 							while (GetPaneCount() > 1)
 								RemovePane(GetPaneCount() - 1);
 						}
@@ -525,6 +525,19 @@ namespace Files.App.Views
 			return shellPage;
 		}
 
+		/// <summary>
+		/// Collects the folder tab paths of a pane for persistence; null when the pane has at most one tab,
+		/// since a single tab always tracks the pane folder.
+		/// </summary>
+		private string[]? GetPaneTabPaths(int index)
+		{
+			var pane = GetPane(index);
+			if (pane is null || pane.PaneTabs.Count <= 1)
+				return null;
+
+			return pane.PaneTabs.Select(tab => tab.Path).ToArray();
+		}
+
 		private int GetPaneCount()
 		{
 			return (RootGrid.Children.Count + 1) / 2;
@@ -671,7 +684,8 @@ namespace Files.App.Views
 				NavParamsLeft = new()
 				{
 					NavPath = paneArgs.LeftPaneNavPathParam,
-					SelectItem = paneArgs.LeftPaneSelectItemParam
+					SelectItem = paneArgs.LeftPaneSelectItemParam,
+					PaneTabPaths = paneArgs.PaneTabPaths
 				};
 
 				// Creates new pane
@@ -683,7 +697,8 @@ namespace Files.App.Views
 				NavParamsRight = new()
 				{
 					NavPath = paneArgs.RightPaneNavPathParam,
-					SelectItem = paneArgs.RightPaneSelectItemParam
+					SelectItem = paneArgs.RightPaneSelectItemParam,
+					PaneTabPaths = paneArgs.SecondPaneTabPaths
 				};
 
 				ShellPaneArrangement =
@@ -697,10 +712,10 @@ namespace Files.App.Views
 					EnsureGridPanes();
 
 					if (GetPane(2) is ModernShellPage thirdPane && !string.IsNullOrEmpty(paneArgs.ThirdPaneNavPathParam))
-						thirdPane.NavParams = new() { NavPath = paneArgs.ThirdPaneNavPathParam };
+						thirdPane.NavParams = new() { NavPath = paneArgs.ThirdPaneNavPathParam, PaneTabPaths = paneArgs.ThirdPaneTabPaths };
 
 					if (GetPane(3) is ModernShellPage fourthPane && !string.IsNullOrEmpty(paneArgs.FourthPaneNavPathParam))
-						fourthPane.NavParams = new() { NavPath = paneArgs.FourthPaneNavPathParam };
+						fourthPane.NavParams = new() { NavPath = paneArgs.FourthPaneNavPathParam, PaneTabPaths = paneArgs.FourthPaneTabPaths };
 
 					ActivePane = GetPane(0);
 				}
@@ -717,6 +732,10 @@ namespace Files.App.Views
 					RightPaneSelectItemParam = GetPaneCount() >= 2 ? NavParamsRight?.SelectItem : null,
 					ThirdPaneNavPathParam = GetPaneCount() >= 3 ? GetPane(2)?.TabBarItemParameter?.NavigationParameter as string : null,
 					FourthPaneNavPathParam = GetPaneCount() >= 4 ? GetPane(3)?.TabBarItemParameter?.NavigationParameter as string : null,
+					PaneTabPaths = GetPaneTabPaths(0),
+					SecondPaneTabPaths = GetPaneCount() >= 2 ? GetPaneTabPaths(1) : null,
+					ThirdPaneTabPaths = GetPaneCount() >= 3 ? GetPaneTabPaths(2) : null,
+					FourthPaneTabPaths = GetPaneCount() >= 4 ? GetPaneTabPaths(3) : null,
 					ShellPaneArrangement = ShellPaneArrangement,
 				}
 			};
@@ -999,6 +1018,10 @@ namespace Files.App.Views
 					RightPaneNavPathParam = GetPaneCount() >= 2 ? GetPane(1)?.TabBarItemParameter?.NavigationParameter as string : null,
 					ThirdPaneNavPathParam = GetPaneCount() >= 3 ? GetPane(2)?.TabBarItemParameter?.NavigationParameter as string : null,
 					FourthPaneNavPathParam = GetPaneCount() >= 4 ? GetPane(3)?.TabBarItemParameter?.NavigationParameter as string : null,
+					PaneTabPaths = GetPaneTabPaths(0),
+					SecondPaneTabPaths = GetPaneCount() >= 2 ? GetPaneTabPaths(1) : null,
+					ThirdPaneTabPaths = GetPaneCount() >= 3 ? GetPaneTabPaths(2) : null,
+					FourthPaneTabPaths = GetPaneCount() >= 4 ? GetPaneTabPaths(3) : null,
 					ShellPaneArrangement = ShellPaneArrangement,
 				}
 			};
