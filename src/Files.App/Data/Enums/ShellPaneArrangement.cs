@@ -10,5 +10,10 @@ namespace Files.App.Data.Enums
 		Horizontal,
 
 		Vertical,
+
+		/// <summary>
+		/// Four panes arranged in a 2x2 grid (quad view).
+		/// </summary>
+		Grid,
 	}
 }

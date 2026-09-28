@@ -13,6 +13,16 @@ namespace Files.App.Data.EventArguments
 
 		public string? RightPaneSelectItemParam { get; set; }
 
+		/// <summary>
+		/// Navigation path of the third pane, used by the 2x2 grid (quad) layout.
+		/// </summary>
+		public string? ThirdPaneNavPathParam { get; set; }
+
+		/// <summary>
+		/// Navigation path of the fourth pane, used by the 2x2 grid (quad) layout.
+		/// </summary>
+		public string? FourthPaneNavPathParam { get; set; }
+
 		public ShellPaneArrangement ShellPaneArrangement { get; set; }
 
 		public static bool operator ==(PaneNavigationArguments? a1, PaneNavigationArguments? a2)
@@ -27,6 +37,8 @@ namespace Files.App.Data.EventArguments
 				a1.LeftPaneSelectItemParam == a2.LeftPaneSelectItemParam &&
 				a1.RightPaneNavPathParam == a2.RightPaneNavPathParam &&
 				a1.RightPaneSelectItemParam == a2.RightPaneSelectItemParam &&
+				a1.ThirdPaneNavPathParam == a2.ThirdPaneNavPathParam &&
+				a1.FourthPaneNavPathParam == a2.FourthPaneNavPathParam &&
 				a1.ShellPaneArrangement == a2.ShellPaneArrangement;
 		}
 
@@ -42,7 +54,7 @@ namespace Files.App.Data.EventArguments
 
 		public override int GetHashCode()
 		{
-			return HashCode.Combine(LeftPaneNavPathParam, LeftPaneSelectItemParam, RightPaneNavPathParam, RightPaneSelectItemParam, ShellPaneArrangement);
+			return HashCode.Combine(LeftPaneNavPathParam, LeftPaneSelectItemParam, RightPaneNavPathParam, RightPaneSelectItemParam, ThirdPaneNavPathParam, FourthPaneNavPathParam, ShellPaneArrangement);
 		}
 	}
 }

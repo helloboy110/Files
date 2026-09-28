@@ -167,7 +167,7 @@
 							<!--  Arrange Panes  -->
 							<MenuFlyoutSubItem
 								x:Name="ArrangePanesMenuItem"
-								x:Load="{x:Bind Commands.CloseActivePane.IsExecutable, Mode=OneWay}"
+								x:Load="{x:Bind Commands.ArrangePanesGrid.IsExecutable, Mode=OneWay}"
 								Text="{helpers:ResourceString Name=ArrangePanes}">
 								<MenuFlyoutSubItem.Items>
 									<!--  Vertical  -->
@@ -187,6 +187,15 @@
 										KeyboardAcceleratorTextOverride="{x:Bind Commands.ArrangePanesHorizontally.HotKeyText, Mode=OneWay}"
 										Text="{x:Bind Commands.ArrangePanesHorizontally.Label}"
 										ThemedIconStyle="{x:Bind Commands.ArrangePanesHorizontally.ThemedIconStyle}" />
+
+									<!--  Grid (2x2)  -->
+									<uc:ToggleMenuFlyoutItemWithThemedIcon
+										x:Name="ArrangePanesGridTabActionButton"
+										Command="{x:Bind Commands.ArrangePanesGrid, Mode=OneWay}"
+										IsChecked="{x:Bind Commands.ArrangePanesGrid.IsOn, Mode=OneWay}"
+										KeyboardAcceleratorTextOverride="{x:Bind Commands.ArrangePanesGrid.HotKeyText, Mode=OneWay}"
+										Text="{x:Bind Commands.ArrangePanesGrid.Label}"
+										ThemedIconStyle="{x:Bind Commands.ArrangePanesGrid.ThemedIconStyle}" />
 								</MenuFlyoutSubItem.Items>
 							</MenuFlyoutSubItem>
 

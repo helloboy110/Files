@@ -4326,6 +4326,12 @@
   <data name="ArrangePanesHorizontally" xml:space="preserve">
     <value>Arrange horizontally</value>
   </data>
+  <data name="ArrangePanesGrid" xml:space="preserve">
+    <value>Arrange in grid (2x2)</value>
+  </data>
+  <data name="ArrangePanesGridDescription" xml:space="preserve">
+    <value>Arrange four panes in a 2x2 grid</value>
+  </data>
   <data name="ArrangePanesHorizontallyDescription" xml:space="preserve">
     <value>Arrange panes horizontally</value>
   </data>
