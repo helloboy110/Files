@@ -505,21 +505,24 @@ namespace Files.App.Utils.Storage
 								!isHidden || (UserSettingsService.FoldersSettingsService.ShowHiddenItems && (!isSystem || UserSettingsService.FoldersSettingsService.ShowProtectedSystemFiles))) &&
 								(!startWithDot || UserSettingsService.FoldersSettingsService.ShowDotFiles);
 
-							if (contentMode && !isDirectory && shouldBeListed)
+							if (shouldBeListed)
 							{
-								// Content mode: keep only files whose contents contain the query text
-								var fileSize = Win32FindDataExtensions.GetSize(findData);
-								if (fileSize > 0 && fileSize <= MaxContentScanSize &&
-									FileContainsText(itemPath, ContentQueryText!, token))
+								if (contentMode)
 								{
-									var item = GetListedItemAsync(itemPath, findData);
-									if (item is not null)
-										results.Add(item);
+									// Content mode: list only files whose contents contain the query text; folders are never listed
+									if (!isDirectory)
+									{
+										var fileSize = Win32FindDataExtensions.GetSize(findData);
+										if (fileSize > 0 && fileSize <= MaxContentScanSize &&
+											FileContainsText(itemPath, ContentQueryText!, token))
+										{
+											var item = GetListedItemAsync(itemPath, findData);
+											if (item is not null)
+												results.Add(item);
+										}
+									}
 								}
-							}
-							else if (shouldBeListed)
-							{
-								if (isShortcut)
+								else if (isShortcut)
 								{
 									pendingShortcuts.Add((itemPath, findData));
 								}
