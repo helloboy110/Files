@@ -3,7 +3,9 @@
 
 using Files.Shared.Helpers;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
@@ -27,6 +29,9 @@ namespace Files.App.Utils.Storage
 
 		private const uint defaultStepSize = 500;
 
+		// Files larger than this are not scanned during content searches
+		private const long MaxContentScanSize = 1024 * 1024;
+
 		public string? Query { get; set; }
 
 		public string? Folder { get; set; }
@@ -38,6 +43,13 @@ namespace Files.App.Utils.Storage
 		public EventHandler? SearchTick;
 
 		private bool IsAQSQuery => Query is not null && (Query.StartsWith('$') || Query.Contains(':', StringComparison.Ordinal));
+
+		private bool IsContentQuery => Query is not null && Query.StartsWith("content:", StringComparison.OrdinalIgnoreCase);
+
+		private string? ContentQueryText
+			=> IsContentQuery ? Query!.Substring("content:".Length).Trim().Trim('"') : null;
+
+		private bool IsEmptyContentQuery => IsContentQuery && string.IsNullOrEmpty(ContentQueryText);
 
 		private string QueryWithWildcard
 		{
@@ -62,6 +74,11 @@ namespace Files.App.Utils.Storage
 				if (Query is not null && Query.StartsWith('$'))
 				{
 					return Query.Substring(1);
+				}
+				else if (IsContentQuery)
+				{
+					var escaped = ContentQueryText!.Replace("\"", "\\\"");
+					return $"contents:\"{escaped}\"";
 				}
 				else if (Query is not null && Query.Contains(':', StringComparison.Ordinal))
 				{
@@ -389,6 +406,11 @@ namespace Files.App.Utils.Storage
 
 		private async Task AddItemsAsync(string folder, IList<ListedItem> results, CancellationToken token)
 		{
+			if (IsEmptyContentQuery)
+			{
+				return; // "content:" without a term would match every file
+			}
+
 			if (IsTagQuery(AQSQuery))
 			{
 				await SearchTagsAsync(folder, results, token);
@@ -397,18 +419,30 @@ namespace Files.App.Utils.Storage
 			{
 				var workingFolder = await GetStorageFolderAsync(folder);
 
-				var hiddenOnlyFromWin32 = false;
-				if (workingFolder)
+				if (IsContentQuery)
+				{
+					// Content search: use the index when available, fall back to scanning files manually
+					var indexed = workingFolder && await IsFolderIndexedAsync(workingFolder.Result);
+					if (indexed)
+					{
+						await SearchAsync(workingFolder.Result!, results, token);
+					}
+					else
+					{
+						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
+					}
+				}
+				else if (IsAQSQuery)
 				{
 					var storageFolder = workingFolder.Result
 						?? throw new InvalidOperationException($"The search folder '{folder}' could not be opened.");
 					await SearchAsync(storageFolder, results, token);
-					hiddenOnlyFromWin32 = (results.Count != 0);
 				}
-
-				if (!IsAQSQuery)
+				else
 				{
-					await SearchWithWin32Async(folder, hiddenOnlyFromWin32, UsedMaxItemCount - (uint)results.Count, results, token);
+					// Plain name search: recursive Win32 enumeration is a single fast pass that
+					// covers subfolders, skipping the slow indexed/deep AQS enumeration entirely
+					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
 				}
 			}
 		}
@@ -419,13 +453,17 @@ namespace Files.App.Utils.Storage
 			if (token.IsCancellationRequested)
 				return;
 
+			// Content mode matches every file name and filters by scanning file contents instead
+			var contentMode = IsContentQuery;
+			var searchPattern = contentMode ? "*" : $"*{QueryWithWildcard}";
+
 			(FindCloseSafeHandle? hFile, WIN32_FIND_DATAW findData) = await Task.Run(() =>
 			{
 				WIN32_FIND_DATAW findDataTsk = default;
 				FindCloseSafeHandle hFileTsk;
 				unsafe
 				{
-					hFileTsk = PInvoke.FindFirstFileEx($"{folder}\\*{QueryWithWildcard}", FINDEX_INFO_LEVELS.FindExInfoBasic,
+					hFileTsk = PInvoke.FindFirstFileEx($"{folder}\\{searchPattern}", FINDEX_INFO_LEVELS.FindExInfoBasic,
 						&findDataTsk, FINDEX_SEARCH_OPS.FindExSearchNameMatch, FIND_FIRST_EX_FLAGS.FIND_FIRST_EX_LARGE_FETCH);
 				}
 				return (hFileTsk, findDataTsk);
@@ -459,6 +497,7 @@ namespace Files.App.Utils.Storage
 							var isSystem = ((FileAttributes)findData.dwFileAttributes & FileAttributes.System) == FileAttributes.System;
 							var isHidden = ((FileAttributes)findData.dwFileAttributes & FileAttributes.Hidden) == FileAttributes.Hidden;
 							var startWithDot = fileName.StartsWith('.');
+							var isDirectory = ((FileAttributes)findData.dwFileAttributes & FileAttributes.Directory) == FileAttributes.Directory;
 							var isShortcut = FileExtensionHelpers.IsShortcutOrUrlFile(fileName);
 
 							bool shouldBeListed = (hiddenOnly ?
@@ -466,7 +505,19 @@ namespace Files.App.Utils.Storage
 								!isHidden || (UserSettingsService.FoldersSettingsService.ShowHiddenItems && (!isSystem || UserSettingsService.FoldersSettingsService.ShowProtectedSystemFiles))) &&
 								(!startWithDot || UserSettingsService.FoldersSettingsService.ShowDotFiles);
 
-							if (shouldBeListed)
+							if (contentMode && !isDirectory && shouldBeListed)
+							{
+								// Content mode: keep only files whose contents contain the query text
+								var fileSize = Win32FindDataExtensions.GetSize(findData);
+								if (fileSize > 0 && fileSize <= MaxContentScanSize &&
+									FileContainsText(itemPath, ContentQueryText!, token))
+								{
+									var item = GetListedItemAsync(itemPath, findData);
+									if (item is not null)
+										results.Add(item);
+								}
+							}
+							else if (shouldBeListed)
 							{
 								if (isShortcut)
 								{
@@ -625,7 +676,104 @@ namespace Files.App.Utils.Storage
 			}
 		}
 
-		private ListedItem? GetListedItemAsync(string itemPath, WIN32_FIND_DATAW findData)
+		/// <summary>
+		/// Checks whether a folder is covered by the Windows Search index.
+		/// </summary>
+		private async Task<bool> IsFolderIndexedAsync(BaseStorageFolder? folder)
+		{
+			if (folder is not SystemStorageFolder)
+				return false;
+
+			try
+			{
+				var state = await folder.GetIndexedStateAsync();
+				return state is IndexedState.FullyIndexed or IndexedState.PartiallyIndexed;
+			}
+			catch (Exception ex)
+			{
+				App.Logger.LogWarning(ex, "Failed to query the indexed state of the search folder");
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Checks whether a file contains the query text, handling UTF-8, UTF-16, UTF-8 BOM and ANSI text files.
+		/// Returns false when the file cannot be read or appears to be binary without a match.
+		/// </summary>
+		private static bool FileContainsText(string filePath, string queryText, CancellationToken token)
+		{
+			FileStream? stream = null;
+			try
+			{
+				stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan);
+
+				Span<byte> buffer = stackalloc byte[4];
+				var preambleLength = stream.Read(buffer);
+				stream.Seek(0, SeekOrigin.Begin);
+
+				Encoding? encoding = preambleLength switch
+				{
+					>= 2 when buffer[0] == 0xFF && buffer[1] == 0xFE => Encoding.Unicode,
+					>= 2 when buffer[0] == 0xFE && buffer[1] == 0xFF => Encoding.BigEndianUnicode,
+					>= 3 when buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF => new UTF8Encoding(false),
+					_ => null,
+				};
+
+				if (encoding is not null)
+				{
+					// Known BOM: decode the whole file and search directly
+					using var reader = new StreamReader(stream, encoding);
+					var contents = reader.ReadToEnd();
+					return contents.Contains(queryText, StringComparison.OrdinalIgnoreCase);
+				}
+
+				// No BOM: detect UTF-16 by the share of null bytes, otherwise treat as UTF-8/ANSI
+				stream.Seek(0, SeekOrigin.Begin);
+				Span<byte> sample = stackalloc byte[512];
+				var sampled = stream.Read(sample);
+				var zeroCount = 0;
+				for (var i = 0; i < sampled; i++)
+				{
+					if (sample[i] == 0)
+						zeroCount++;
+				}
+				var isUtf16 = sampled >= 16 && zeroCount > sampled / 4;
+
+				if (isUtf16)
+				{
+					using var reader = new StreamReader(stream, Encoding.Unicode);
+					var contents = reader.ReadToEnd();
+					return contents.Contains(queryText, StringComparison.OrdinalIgnoreCase);
+				}
+
+				// Try strict UTF-8 first, then fall back to the system ANSI code page (e.g. GBK)
+				var bytes = new byte[stream.Length];
+				stream.ReadExactly(bytes);
+
+				string decoded;
+				try
+				{
+					decoded = new UTF8Encoding(false, true).GetString(bytes);
+				}
+				catch (DecoderFallbackException)
+				{
+					// Not valid UTF-8: fall back to the legacy ANSI code page of the system (e.g. GBK on zh-CN systems)
+					decoded = Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage).GetString(bytes);
+				}
+
+				return decoded.Contains(queryText, StringComparison.OrdinalIgnoreCase);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
+			{
+				return false;
+			}
+			finally
+			{
+				stream?.Dispose();
+			}
+		}
+
+	private ListedItem? GetListedItemAsync(string itemPath, WIN32_FIND_DATAW findData)
 		{
 			string fileName = findData.cFileName.ToString();
 			ListedItem? listedItem = null;
