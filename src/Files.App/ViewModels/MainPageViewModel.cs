@@ -357,8 +357,9 @@ namespace Files.App.ViewModels
 				savedIndex = sessionTabs.Count - 1;
 
 			// Load the previously focused tab first so the user can interact with it while the rest load.
+			// Pass the full parameter so the persisted tab name is restored too
 			var focusedArgs = TabBarItemParameter.Deserialize(sessionTabs[savedIndex]);
-			await NavigationHelpers.AddNewTabByParamAsync(focusedArgs.InitialPageType, focusedArgs.NavigationParameter);
+			await NavigationHelpers.AddNewTabByParamAsync(focusedArgs.InitialPageType, focusedArgs);
 
 			// Append the remaining tabs in their original order without changing the selection.
 			for (int i = 0; i < sessionTabs.Count; i++)
@@ -367,7 +368,8 @@ namespace Files.App.ViewModels
 					continue;
 
 				var args = TabBarItemParameter.Deserialize(sessionTabs[i]);
-				await NavigationHelpers.AddNewTabByParamAsync(args.InitialPageType, args.NavigationParameter, switchToNewTab: false);
+				// Pass the full parameter so the persisted tab name is restored too
+				await NavigationHelpers.AddNewTabByParamAsync(args.InitialPageType, args, switchToNewTab: false);
 			}
 
 			// Move the focused tab from position 0 to its original index so the tab order matches the saved session.
