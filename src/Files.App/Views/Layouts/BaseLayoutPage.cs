@@ -684,6 +684,11 @@ namespace Files.App.Views.Layouts
 			if (!ShouldShowNativeContextMenu() || !CanShowNativeMenuForCurrentPage())
 				return;
 
+			// Regions that carry their own flyout (the details-view column header) must not get
+			// the native menu stacked on top of it
+			if (IsRightTapWithinOwnedFlyoutRegion(e))
+				return;
+
 			var parentShellPage = ParentShellPageInstance;
 			var workingDirectory = parentShellPage?.GetRequiredShellViewModel().WorkingDirectory;
 			if (string.IsNullOrEmpty(workingDirectory))
@@ -692,6 +697,12 @@ namespace Files.App.Views.Layouts
 			e.Handled = true;
 			_ = ShowNativeContextMenuAtCursorAsync([workingDirectory]);
 		}
+
+		/// <summary>
+		/// Overridden by layouts whose header regions own their context flyout, so the native
+		/// Windows menu is not stacked on top of it.
+		/// </summary>
+		protected virtual bool IsRightTapWithinOwnedFlyoutRegion(RightTappedRoutedEventArgs e) => false;
 
 		private async Task<IShellPage> EnsurePageIsCurrentAsync()
 		{

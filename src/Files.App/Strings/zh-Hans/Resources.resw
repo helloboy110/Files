@@ -4773,4 +4773,10 @@
   <data name="ConfirmRemoveTagsDialogContent" xml:space="preserve">
     <value>您确定要从所选项目中删除标签吗？</value>
   </data>
+  <data name="ContentSearchFileSizeLimit" xml:space="preserve">
+    <value>内容搜索的最大文件大小</value>
+  </data>
+  <data name="ContentSearchFileSizeLimitDescription" xml:space="preserve">
+    <value>搜索文件内容时跳过超过该大小的文件（MB）。</value>
+  </data>
 </root>

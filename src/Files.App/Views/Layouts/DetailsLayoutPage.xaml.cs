@@ -1318,6 +1318,19 @@ namespace Files.App.Views.Layouts
 			e.Handled = true;
 		}
 
+		// The header grid owns its flyout (sorting, column widths); the native menu must not cover it
+		protected override bool IsRightTapWithinOwnedFlyoutRegion(RightTappedRoutedEventArgs e)
+		{
+			var node = e.OriginalSource as DependencyObject;
+			while (node is not null && !ReferenceEquals(node, this))
+			{
+				if (ReferenceEquals(node, HeaderGrid))
+					return true;
+				node = VisualTreeHelper.GetParent(node);
+			}
+			return false;
+		}
+
 		private static GitProperties GetEnabledGitProperties(ColumnsViewModel columnsViewModel)
 		{
 			var enableStatus = !columnsViewModel.GitStatusColumn.IsHidden && !columnsViewModel.GitStatusColumn.UserCollapsed;

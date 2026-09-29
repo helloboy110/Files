@@ -5,8 +5,10 @@ using Files.Shared.Helpers;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Search;
@@ -32,9 +34,6 @@ namespace Files.App.Utils.Storage
 		// Caps concurrent directory/content scans; more workers rarely help past this on typical storage
 		private static readonly int MaxEnumerationConcurrency = Math.Clamp(Environment.ProcessorCount, 2, 8);
 
-		// Shared across the whole recursive search so total fan-out stays bounded
-		private readonly SemaphoreSlim recursionGate = new(Math.Clamp(Environment.ProcessorCount, 2, 8));
-
 		// Adds under the results lock so parallel branches cannot overshoot the item budget
 		private static void TryAddResult(IList<ListedItem> results, ListedItem item, uint maxItemCount)
 		{
@@ -53,8 +52,11 @@ namespace Files.App.Utils.Storage
 			}
 		}
 
-		// Files larger than this are not scanned during content searches
-		private const long MaxContentScanSize = 1024 * 1024;
+		// Files larger than the configured limit are not scanned during content searches. Plain-text
+		// data files (XML dumps, game tables) routinely exceed 1 MB under arbitrary extensions, so
+		// binaries are rejected by content sniffing instead of relying on size or extension alone
+		private long MaxContentScanSize
+			=> Math.Clamp(UserSettingsService.GeneralSettingsService.MaxContentSearchFileSizeMB, 1, 1024) * 1024L * 1024L;
 
 		public string? Query { get; set; }
 
@@ -461,39 +463,50 @@ namespace Files.App.Utils.Storage
 			{
 				var workingFolder = await GetStorageFolderAsync(folder);
 
-				try
+				if (IsContentQuery)
 				{
-					if (IsContentQuery)
-					{
-						// Windows Search cannot be trusted for content on partially indexed folders
-						// (it silently returns nothing for uncrawled locations), so always scan files
-						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
-					}
-					else if (IsAQSQuery)
-					{
-						var storageFolder = workingFolder.Result
-							?? throw new InvalidOperationException($"The search folder '{folder}' could not be opened.");
-						await SearchAsync(storageFolder, results, token);
-					}
-					else
-					{
-						// Plain name search: recursive Win32 enumeration is a single fast pass that
-						// covers subfolders, skipping the slow indexed/deep AQS enumeration entirely
-						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
-					}
+					// Windows Search cannot be trusted for content on partially indexed folders
+					// (it silently returns nothing for uncrawled locations), so always scan files
+					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
 				}
-				finally
+				else if (IsAQSQuery)
 				{
-					recursionGate.Dispose();
+					var storageFolder = workingFolder.Result
+						?? throw new InvalidOperationException($"The search folder '{folder}' could not be opened.");
+					await SearchAsync(storageFolder, results, token);
+				}
+				else
+				{
+					// Plain name search: recursive Win32 enumeration is a single fast pass that
+					// covers subfolders, skipping the slow indexed/deep AQS enumeration entirely
+					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
 				}
 			}
 		}
 
+		// Breadth-first walk over the directory tree: each scan completes before the next
+		// directory is dequeued, so no scan ever waits on its own descendants. The previous
+		// recursive design held a concurrency slot while descending, deadlocking on deep
+		// trees once every slot was occupied by ancestors waiting for children.
 		private async Task SearchWithWin32Async(string folder, bool hiddenOnly, uint maxItemCount, IList<ListedItem> results, CancellationToken token)
+		{
+			var pendingDirectories = new Queue<string>();
+			pendingDirectories.Enqueue(folder);
+
+			while (pendingDirectories.Count > 0 && !token.IsCancellationRequested && GetResultCount(results) < maxItemCount)
+			{
+				var subDirectories = await ScanDirectoryAsync(pendingDirectories.Dequeue(), hiddenOnly, maxItemCount, results, token);
+				foreach (var directory in subDirectories)
+					pendingDirectories.Enqueue(directory);
+			}
+		}
+
+		// Scans one directory for matching files and returns its plain subdirectories
+		private async Task<List<string>> ScanDirectoryAsync(string folder, bool hiddenOnly, uint maxItemCount, IList<ListedItem> results, CancellationToken token)
 		{
 			//var sampler = new IntervalSampler(500);
 			if (token.IsCancellationRequested || GetResultCount(results) >= maxItemCount)
-				return;
+				return [];
 
 			// Content mode matches every file name and filters by scanning file contents instead
 			var contentMode = IsContentQuery;
@@ -513,7 +526,7 @@ namespace Files.App.Utils.Storage
 			if (token.IsCancellationRequested)
 			{
 				hFile?.Dispose();
-				return;
+				return [];
 			}
 
 			var pendingShortcuts = new List<(string Path, WIN32_FIND_DATAW FindData)>();
@@ -548,7 +561,10 @@ namespace Files.App.Utils.Storage
 
 							if (isDirectory)
 							{
-								if (fileName != "." && fileName != "..")
+								// Skip reparse points (junctions, symlinks): recursing into them can cycle
+								// forever and would duplicate matches already reachable via their target
+								var isReparsePoint = ((FileAttributes)findData.dwFileAttributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
+								if (!isReparsePoint && fileName != "." && fileName != "..")
 									subDirectories.Add(Path.Combine(folder, fileName));
 							}
 							else if (shouldBeListed)
@@ -570,11 +586,12 @@ namespace Files.App.Utils.Storage
 			}
 
 			if (token.IsCancellationRequested)
-				return;
+				return subDirectories;
 
 			if (contentMode)
 			{
 				// Content mode is I/O bound per file; scanning candidates in parallel is the main speedup
+				var maxScanSize = MaxContentScanSize;
 				var parallelOptions = new ParallelOptions
 				{
 					CancellationToken = token,
@@ -585,7 +602,8 @@ namespace Files.App.Utils.Storage
 				{
 					string itemPath = Path.Combine(folder, entry.cFileName.ToString());
 					var fileSize = Win32FindDataExtensions.GetSize(entry);
-					if (fileSize > 0 && fileSize <= MaxContentScanSize && FileContainsText(itemPath, ContentQueryText!, ct))
+					var extension = Path.GetExtension(itemPath);
+					if (fileSize > 0 && fileSize <= maxScanSize && FileContainsText(itemPath, extension, ContentQueryText!, ct))
 					{
 						var item = GetListedItemAsync(itemPath, entry);
 						if (item is not null)
@@ -684,36 +702,28 @@ namespace Files.App.Utils.Storage
 					SearchTick?.Invoke(this, EventArgs.Empty);
 				}
 			}
-			if (token.IsCancellationRequested)
-				return;
 
-			// Recurse into subdirectories concurrently; the shared gate bounds total fan-out
-			// across all recursion levels so wide trees do not spawn unbounded workers
-			var recursionOptions = new ParallelOptions
-			{
-				CancellationToken = token,
-				MaxDegreeOfParallelism = MaxEnumerationConcurrency,
-			};
-
-			await Parallel.ForEachAsync(subDirectories, recursionOptions, async (subDir, ct) =>
-			{
-				await recursionGate.WaitAsync(ct);
-				try
-				{
-					await SearchWithWin32Async(subDir, hiddenOnly, maxItemCount, results, ct);
-				}
-				finally
-				{
-					recursionGate.Release();
-				}
-			});
+			return subDirectories;
 		}
 
 		/// <summary>
-		/// Checks whether a file contains the query text, handling UTF-8, UTF-16, UTF-8 BOM and ANSI text files.
+		/// Checks whether a file contains the query text. Plain text files are decoded by BOM
+		/// detection as before; Word/PowerPoint/Excel documents are scanned inside their zip container.
+		/// Returns false when the file cannot be read or does not match.
+		/// </summary>
+		private static bool FileContainsText(string filePath, string extension, string queryText, CancellationToken token)
+		{
+			if (OfficeContentHelpers.IsOfficeExtension(extension))
+				return OfficeContentHelpers.OfficeFileContainsText(filePath, queryText, token);
+
+			return PlainTextFileContainsText(filePath, queryText, token);
+		}
+
+		/// <summary>
+		/// Checks whether a plain text file contains the query text, handling UTF-8, UTF-16, UTF-8 BOM and ANSI text files.
 		/// Returns false when the file cannot be read or appears to be binary without a match.
 		/// </summary>
-		private static bool FileContainsText(string filePath, string queryText, CancellationToken token)
+		private static bool PlainTextFileContainsText(string filePath, string queryText, CancellationToken token)
 		{
 			FileStream? stream = null;
 			try
@@ -742,13 +752,17 @@ namespace Files.App.Utils.Storage
 
 				// No BOM: detect UTF-16 by the share of null bytes, otherwise treat as UTF-8/ANSI
 				stream.Seek(0, SeekOrigin.Begin);
-				Span<byte> sample = stackalloc byte[512];
+				Span<byte> sample = stackalloc byte[4096];
 				var sampled = stream.Read(sample);
 				var zeroCount = 0;
+				var controlCount = 0;
 				for (var i = 0; i < sampled; i++)
 				{
-					if (sample[i] == 0)
+					var b = sample[i];
+					if (b == 0)
 						zeroCount++;
+					else if (b is < 32 and not (9 or 10 or 11 or 12 or 13))
+						controlCount++;
 				}
 				var isUtf16 = sampled >= 16 && zeroCount > sampled / 4;
 
@@ -760,7 +774,11 @@ namespace Files.App.Utils.Storage
 					return contents.Contains(queryText, StringComparison.OrdinalIgnoreCase);
 				}
 
-				// Try strict UTF-8 first, then fall back to the system ANSI code page (e.g. GBK)
+				// Binary content (executables, archives, media): reject before paying for a decode pass
+			if (sampled >= 16 && controlCount > sampled / 10)
+				return false;
+
+			// Try strict UTF-8 first, then fall back to the system ANSI code page (e.g. GBK)
 				stream.Seek(0, SeekOrigin.Begin);
 				var bytes = new byte[stream.Length];
 				stream.ReadExactly(bytes);

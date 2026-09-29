@@ -66,6 +66,11 @@ namespace Files.App.Data.Contracts
 		List<string>? PreviousArchiveExtractionLocations { get; set; }
 
 		/// <summary>
+		/// Gets or sets the maximum file size (in MB) scanned when searching file contents.
+		/// </summary>
+		int MaxContentSearchFileSizeMB { get; set; }
+
+		/// <summary>
 		/// Gets or sets a value indicating which date and time format to use.
 		/// </summary>
 		DateTimeFormats DateTimeFormat { get; set; }

@@ -194,6 +194,22 @@
 					SelectedItem="{x:Bind ViewModel.SizeUnitFormat, Mode=TwoWay}" />
 			</wctcontrols:SettingsCard>
 
+			<!--  Content search file size limit  -->
+			<wctcontrols:SettingsCard Header="{helpers:ResourceString Name=ContentSearchFileSizeLimit}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE721;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<wctcontrols:SettingsCard.Description>
+					<TextBlock Text="{helpers:ResourceString Name=ContentSearchFileSizeLimitDescription}" TextWrapping="WrapWholeWords" />
+				</wctcontrols:SettingsCard.Description>
+				<NumberBox
+					AutomationProperties.Name="{helpers:ResourceString Name=ContentSearchFileSizeLimit}"
+					Maximum="1024"
+					Minimum="1"
+					SpinButtonPlacementMode="Inline"
+					Value="{x:Bind ViewModel.MaxContentSearchFileSizeMB, Mode=TwoWay}" />
+			</wctcontrols:SettingsCard>
+
 			<!--  Calculate folder sizes  -->
 			<wctcontrols:SettingsExpander Header="{helpers:ResourceString Name=CalculateFolderSizes}" IsExpanded="True">
 				<wctcontrols:SettingsExpander.HeaderIcon>

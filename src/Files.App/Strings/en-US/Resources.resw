@@ -4779,4 +4779,10 @@
   <data name="ConfirmRemoveTagsDialogContent" xml:space="preserve">
     <value>Are you sure you want to remove tags from the selected items?</value>
   </data>
+  <data name="ContentSearchFileSizeLimit" xml:space="preserve">
+    <value>Maximum file size for content searches</value>
+  </data>
+  <data name="ContentSearchFileSizeLimitDescription" xml:space="preserve">
+    <value>Files larger than this size are skipped when searching file contents (MB).</value>
+  </data>
 </root>

@@ -83,6 +83,12 @@ namespace Files.App.Services.Settings
 			set => Set(value);
 		}
 
+		public int MaxContentSearchFileSizeMB
+		{
+			get => Get(16);
+			set => Set(value);
+		}
+
 		public DateTimeFormats DateTimeFormat
 		{
 			get => Get(DateTimeFormats.Application);

@@ -294,5 +294,19 @@ namespace Files.App.ViewModels.Settings
 				}
 			}
 		}
+
+		public double MaxContentSearchFileSizeMB
+		{
+			get => UserSettingsService.GeneralSettingsService.MaxContentSearchFileSizeMB;
+			set
+			{
+				var sizeMb = Math.Clamp((int)Math.Round(value), 1, 1024);
+				if (sizeMb != UserSettingsService.GeneralSettingsService.MaxContentSearchFileSizeMB)
+				{
+					UserSettingsService.GeneralSettingsService.MaxContentSearchFileSizeMB = sizeMb;
+					OnPropertyChanged();
+				}
+			}
+		}
 	}
 }
