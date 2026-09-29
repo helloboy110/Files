@@ -2,12 +2,15 @@
 // Licensed under the MIT License.
 
 using Files.App.Utils.Serialization.Implementation;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
 namespace Files.App.Services.Settings
 {
 	[JsonSourceGenerationOptions(WriteIndented = true)]
+	[JsonSerializable(typeof(object))]
+	[JsonSerializable(typeof(ConcurrentDictionary<string, JsonElement>))]
 	[JsonSerializable(typeof(List<NamedLayout>))]
 	[JsonSerializable(typeof(NamedLayout))]
 	internal sealed partial class LayoutProfilesJsonSerializationContext : JsonSerializerContext
