@@ -3467,7 +3467,13 @@ namespace Files.App.ViewModels
 			var results = new List<ListedItem>();
 			search.SearchTick += async (s, e) =>
 			{
-				filesAndFolders = new ConcurrentCollection<ListedItem>(results);
+				// Snapshot under the results lock: enumeration now runs in parallel and mutates concurrently
+				List<ListedItem> snapshot;
+				lock (results)
+				{
+					snapshot = new List<ListedItem>(results);
+				}
+				filesAndFolders = new ConcurrentCollection<ListedItem>(snapshot);
 				await OrderFilesAndFoldersAsync();
 				await ApplyFilesAndFoldersChangesAsync();
 			};

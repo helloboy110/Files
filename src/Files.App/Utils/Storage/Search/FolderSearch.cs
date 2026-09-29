@@ -29,6 +29,30 @@ namespace Files.App.Utils.Storage
 
 		private const uint defaultStepSize = 500;
 
+		// Caps concurrent directory/content scans; more workers rarely help past this on typical storage
+		private static readonly int MaxEnumerationConcurrency = Math.Clamp(Environment.ProcessorCount, 2, 8);
+
+		// Shared across the whole recursive search so total fan-out stays bounded
+		private readonly SemaphoreSlim recursionGate = new(Math.Clamp(Environment.ProcessorCount, 2, 8));
+
+		// Adds under the results lock so parallel branches cannot overshoot the item budget
+		private static void TryAddResult(IList<ListedItem> results, ListedItem item, uint maxItemCount)
+		{
+			lock (results)
+			{
+				if ((uint)results.Count < maxItemCount)
+					results.Add(item);
+			}
+		}
+
+		private static uint GetResultCount(IList<ListedItem> results)
+		{
+			lock (results)
+			{
+				return (uint)results.Count;
+			}
+		}
+
 		// Files larger than this are not scanned during content searches
 		private const long MaxContentScanSize = 1024 * 1024;
 
@@ -42,12 +66,30 @@ namespace Files.App.Utils.Storage
 
 		public EventHandler? SearchTick;
 
+		// Accepted content-search prefixes: the full keyword, the "c" shorthand, and both
+		// ASCII and full-width Chinese colons so IME users never need to switch layouts
+		private static readonly string[] ContentQueryPrefixes = ["content:", "content：", "c:", "c："];
+
 		private bool IsAQSQuery => Query is not null && (Query.StartsWith('$') || Query.Contains(':', StringComparison.Ordinal));
 
-		private bool IsContentQuery => Query is not null && Query.StartsWith("content:", StringComparison.OrdinalIgnoreCase);
+		private bool IsContentQuery => GetContentQueryPrefix() is not null;
 
 		private string? ContentQueryText
-			=> IsContentQuery ? Query!.Substring("content:".Length).Trim().Trim('"') : null;
+		{
+			get
+			{
+				var prefixLength = GetContentQueryPrefix()?.Length ?? 0;
+				return prefixLength > 0 ? Query![prefixLength..].Trim().Trim('"') : null;
+			}
+		}
+
+		private string? GetContentQueryPrefix()
+		{
+			if (Query is null)
+				return null;
+
+			return ContentQueryPrefixes.FirstOrDefault(prefix => Query.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+		}
 
 		private bool IsEmptyContentQuery => IsContentQuery && string.IsNullOrEmpty(ContentQueryText);
 
@@ -419,23 +461,30 @@ namespace Files.App.Utils.Storage
 			{
 				var workingFolder = await GetStorageFolderAsync(folder);
 
-				if (IsContentQuery)
+				try
 				{
-					// Windows Search cannot be trusted for content on partially indexed folders
-					// (it silently returns nothing for uncrawled locations), so always scan files
-					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
+					if (IsContentQuery)
+					{
+						// Windows Search cannot be trusted for content on partially indexed folders
+						// (it silently returns nothing for uncrawled locations), so always scan files
+						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
+					}
+					else if (IsAQSQuery)
+					{
+						var storageFolder = workingFolder.Result
+							?? throw new InvalidOperationException($"The search folder '{folder}' could not be opened.");
+						await SearchAsync(storageFolder, results, token);
+					}
+					else
+					{
+						// Plain name search: recursive Win32 enumeration is a single fast pass that
+						// covers subfolders, skipping the slow indexed/deep AQS enumeration entirely
+						await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
+					}
 				}
-				else if (IsAQSQuery)
+				finally
 				{
-					var storageFolder = workingFolder.Result
-						?? throw new InvalidOperationException($"The search folder '{folder}' could not be opened.");
-					await SearchAsync(storageFolder, results, token);
-				}
-				else
-				{
-					// Plain name search: recursive Win32 enumeration is a single fast pass that
-					// covers subfolders, skipping the slow indexed/deep AQS enumeration entirely
-					await SearchWithWin32Async(folder, hiddenOnly: false, UsedMaxItemCount, results, token);
+					recursionGate.Dispose();
 				}
 			}
 		}
@@ -443,7 +492,7 @@ namespace Files.App.Utils.Storage
 		private async Task SearchWithWin32Async(string folder, bool hiddenOnly, uint maxItemCount, IList<ListedItem> results, CancellationToken token)
 		{
 			//var sampler = new IntervalSampler(500);
-			if (token.IsCancellationRequested)
+			if (token.IsCancellationRequested || GetResultCount(results) >= maxItemCount)
 				return;
 
 			// Content mode matches every file name and filters by scanning file contents instead
@@ -468,10 +517,13 @@ namespace Files.App.Utils.Storage
 			}
 
 			var pendingShortcuts = new List<(string Path, WIN32_FIND_DATAW FindData)>();
+			var fileEntries = new List<WIN32_FIND_DATAW>();
+			var subDirectories = new List<string>();
 
 			if (hFile is { IsInvalid: false } findHandle)
 			{
 				// Always enter the delegate so the find handle is disposed; cancellation is checked before mutations.
+				// Single pass collects matching files AND subfolders; both are then processed concurrently.
 				await Task.Run(() =>
 				{
 					using (findHandle)
@@ -482,11 +534,7 @@ namespace Files.App.Utils.Storage
 							if (token.IsCancellationRequested)
 								break;
 
-							if (results.Count >= maxItemCount)
-								break;
-
 							string fileName = findData.cFileName.ToString();
-							var itemPath = Path.Combine(folder, fileName);
 							var isSystem = ((FileAttributes)findData.dwFileAttributes & FileAttributes.System) == FileAttributes.System;
 							var isHidden = ((FileAttributes)findData.dwFileAttributes & FileAttributes.Hidden) == FileAttributes.Hidden;
 							var startWithDot = fileName.StartsWith('.');
@@ -498,37 +546,19 @@ namespace Files.App.Utils.Storage
 								!isHidden || (UserSettingsService.FoldersSettingsService.ShowHiddenItems && (!isSystem || UserSettingsService.FoldersSettingsService.ShowProtectedSystemFiles))) &&
 								(!startWithDot || UserSettingsService.FoldersSettingsService.ShowDotFiles);
 
-							if (shouldBeListed)
+							if (isDirectory)
 							{
-								if (contentMode)
-								{
-									// Content mode: list only files whose contents contain the query text; folders are never listed
-									if (!isDirectory)
-									{
-										var fileSize = Win32FindDataExtensions.GetSize(findData);
-										if (fileSize > 0 && fileSize <= MaxContentScanSize &&
-											FileContainsText(itemPath, ContentQueryText!, token))
-										{
-											var item = GetListedItemAsync(itemPath, findData);
-											if (item is not null)
-												results.Add(item);
-										}
-									}
-								}
-								else if (isShortcut)
-								{
-									pendingShortcuts.Add((itemPath, findData));
-								}
+								if (fileName != "." && fileName != "..")
+									subDirectories.Add(Path.Combine(folder, fileName));
+							}
+							else if (shouldBeListed)
+							{
+								if (isShortcut && !contentMode)
+									pendingShortcuts.Add((Path.Combine(folder, fileName), findData));
 								else
-								{
-									var item = GetListedItemAsync(itemPath, findData);
-									if (item is not null && !token.IsCancellationRequested)
-										results.Add(item);
-								}
+									fileEntries.Add(findData);
 							}
 
-							if (!token.IsCancellationRequested && (results.Count == 32 || results.Count % 300 == 0 /*|| sampler.CheckNow()*/))
-								SearchTick?.Invoke(this, EventArgs.Empty);
 							hasNextFile = PInvoke.FindNextFile(findHandle, out findData);
 						} while (hasNextFile);
 					}
@@ -539,9 +569,50 @@ namespace Files.App.Utils.Storage
 				hFile?.Dispose();
 			}
 
+			if (token.IsCancellationRequested)
+				return;
+
+			if (contentMode)
+			{
+				// Content mode is I/O bound per file; scanning candidates in parallel is the main speedup
+				var parallelOptions = new ParallelOptions
+				{
+					CancellationToken = token,
+					MaxDegreeOfParallelism = MaxEnumerationConcurrency,
+				};
+
+				await Parallel.ForEachAsync(fileEntries, parallelOptions, (entry, ct) =>
+				{
+					string itemPath = Path.Combine(folder, entry.cFileName.ToString());
+					var fileSize = Win32FindDataExtensions.GetSize(entry);
+					if (fileSize > 0 && fileSize <= MaxContentScanSize && FileContainsText(itemPath, ContentQueryText!, ct))
+					{
+						var item = GetListedItemAsync(itemPath, entry);
+						if (item is not null)
+							TryAddResult(results, item, maxItemCount);
+					}
+					return ValueTask.CompletedTask;
+				});
+			}
+			else
+			{
+				foreach (var entry in fileEntries)
+				{
+					if (token.IsCancellationRequested)
+						break;
+
+					var item = GetListedItemAsync(Path.Combine(folder, entry.cFileName.ToString()), entry);
+					if (item is not null)
+						TryAddResult(results, item, maxItemCount);
+				}
+			}
+
+			if (!token.IsCancellationRequested && results.Count > 0)
+				SearchTick?.Invoke(this, EventArgs.Empty);
+
 			foreach (var (itemPath, itemFindData) in pendingShortcuts)
 			{
-				if (results.Count >= maxItemCount || token.IsCancellationRequested)
+				if (GetResultCount(results) >= maxItemCount || token.IsCancellationRequested)
 					break;
 
 				string shortcutFileName = itemFindData.cFileName.ToString();
@@ -606,7 +677,7 @@ namespace Files.App.Utils.Storage
 				if (token.IsCancellationRequested)
 					break;
 
-				results.Add(shortcutItem);
+				TryAddResult(results, shortcutItem, maxItemCount);
 
 				if (!token.IsCancellationRequested && (results.Count == 32 || results.Count % 300 == 0))
 				{
@@ -616,60 +687,26 @@ namespace Files.App.Utils.Storage
 			if (token.IsCancellationRequested)
 				return;
 
-			(FindCloseSafeHandle? hSubDir, WIN32_FIND_DATAW subDirData) = await Task.Run(() =>
+			// Recurse into subdirectories concurrently; the shared gate bounds total fan-out
+			// across all recursion levels so wide trees do not spawn unbounded workers
+			var recursionOptions = new ParallelOptions
 			{
-				WIN32_FIND_DATAW subDirDataTsk = default;
-				FindCloseSafeHandle hSubDirTsk;
-				unsafe
+				CancellationToken = token,
+				MaxDegreeOfParallelism = MaxEnumerationConcurrency,
+			};
+
+			await Parallel.ForEachAsync(subDirectories, recursionOptions, async (subDir, ct) =>
+			{
+				await recursionGate.WaitAsync(ct);
+				try
 				{
-					hSubDirTsk = PInvoke.FindFirstFileEx($"{folder}\\*", FINDEX_INFO_LEVELS.FindExInfoBasic,
-						&subDirDataTsk, FINDEX_SEARCH_OPS.FindExSearchNameMatch, FIND_FIRST_EX_FLAGS.FIND_FIRST_EX_LARGE_FETCH);
+					await SearchWithWin32Async(subDir, hiddenOnly, maxItemCount, results, ct);
 				}
-				return (hSubDirTsk, subDirDataTsk);
-			}).WithTimeoutAsync(TimeSpan.FromSeconds(5));
-			if (token.IsCancellationRequested)
-			{
-				hSubDir?.Dispose();
-				return;
-			}
-
-			if (hSubDir is { IsInvalid: false } subDirectoryHandle)
-			{
-				var subDirectories = new List<string>();
-
-				// Always enter the delegate so the find handle is disposed; cancellation is checked before mutations.
-				await Task.Run(() =>
+				finally
 				{
-					using (subDirectoryHandle)
-					{
-						var hasNextDir = false;
-						do
-						{
-							if (token.IsCancellationRequested)
-								break;
-
-							string subDirName = subDirData.cFileName.ToString();
-							var isDirectory = ((FileAttributes)subDirData.dwFileAttributes & FileAttributes.Directory) == FileAttributes.Directory;
-							if (isDirectory && subDirName != "." && subDirName != "..")
-								subDirectories.Add(Path.Combine(folder, subDirName));
-
-							hasNextDir = PInvoke.FindNextFile(subDirectoryHandle, out subDirData);
-						} while (hasNextDir);
-					}
-				});
-
-				foreach (var subDir in subDirectories)
-				{
-					if (results.Count >= maxItemCount || token.IsCancellationRequested)
-						break;
-
-					await SearchWithWin32Async(subDir, hiddenOnly, maxItemCount - (uint)results.Count, results, token);
+					recursionGate.Release();
 				}
-			}
-			else
-			{
-				hSubDir?.Dispose();
-			}
+			});
 		}
 
 		/// <summary>
