@@ -37,7 +37,12 @@ namespace Files.App.UserControls.TabBar
 			set
 			{
 				if (SetProperty(ref _CustomName, value))
+				{
+					// Keep the persisted navigation arguments in sync so renames survive restarts
+					if (_NavigationArguments is not null)
+						_NavigationArguments.TabName = value;
 					RefreshHeader();
+				}
 			}
 		}
 
