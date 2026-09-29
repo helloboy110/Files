@@ -174,15 +174,15 @@ namespace Files.App
 
 		public static class ExternalUrl
 		{
-			public const string GitHubRepoUrl = @"https://github.com/helloboy110/Files";
-			public const string DocumentationUrl = @"https://github.com/helloboy110/Files";
-			public const string DiscordUrl = @"https://github.com/helloboy110/Files";
-			public const string FeatureRequestUrl = @"https://github.com/helloboy110/Files/issues/new";
-			public const string BugReportUrl = @"https://github.com/helloboy110/Files/issues/new?labels=bug&template=bug_report.yml";
-			public const string PrivacyPolicyUrl = @"https://github.com/helloboy110/Files";
-			public const string SupportUsUrl = @"https://github.com/helloboy110/Files";
-			public const string CrowdinUrl = @"https://github.com/helloboy110/Files";
-			public static readonly string ReleaseNotesUrl = $"https://github.com/helloboy110/Files/releases/tag/v{PackageCompat.Version.Major}.{PackageCompat.Version.Minor}.{PackageCompat.Version.Build}";
+			public const string GitHubRepoUrl = @"https://github.com/hibuddy11/Files";
+			public const string DocumentationUrl = @"https://github.com/hibuddy11/Files";
+			public const string DiscordUrl = @"https://github.com/hibuddy11/Files";
+			public const string FeatureRequestUrl = @"https://github.com/hibuddy11/Files/issues/new";
+			public const string BugReportUrl = @"https://github.com/hibuddy11/Files/issues/new?labels=bug&template=bug_report.yml";
+			public const string PrivacyPolicyUrl = @"https://github.com/hibuddy11/Files";
+			public const string SupportUsUrl = @"https://github.com/hibuddy11/Files";
+			public const string CrowdinUrl = @"https://github.com/hibuddy11/Files";
+			public static readonly string ReleaseNotesUrl = $"https://github.com/hibuddy11/Files/releases/tag/v{PackageCompat.Version.Major}.{PackageCompat.Version.Minor}.{PackageCompat.Version.Build}";
 		}
 
 		public static class DocsPath
@@ -262,7 +262,7 @@ namespace Files.App
 		{
 			// These strings are intentionally hardcoded and cannot be moved to resource files.
 			// The Windows App Runtime (which powers the resource loading system) may itself be unavailable at this point
-			public const string MissingRuntimeMessage = "Files failed to start. A required Windows component could not be loaded. Try reinstalling Files from https://github.com/helloboy110/Files/releases";
+			public const string MissingRuntimeMessage = "Files failed to start. A required Windows component could not be loaded. Try reinstalling Files from https://github.com/hibuddy11/Files/releases";
 			public const string MissingRuntimeTitle = "Files - Startup Error";
 		}
 	}

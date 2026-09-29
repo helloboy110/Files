@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
   - name: Feature Request
-    url: https://github.com/helloboy110/Files/issues/new
+    url: https://github.com/hibuddy11/Files/issues/new
     about: Suggest an idea for Files.
   - name: Translation issue
-    url: https://github.com/helloboy110/Files
+    url: https://github.com/hibuddy11/Files
     about: Help improve translations.
   - name: Question & Discussion
-    url: https://github.com/helloboy110/Files/discussions
+    url: https://github.com/hibuddy11/Files/discussions
     about: Post your questions and join the discussion.
   - name: Code Quality
-    url: https://github.com/helloboy110/Files/discussions
+    url: https://github.com/hibuddy11/Files/discussions
     about: Discuss code quality and improvements.
