@@ -215,6 +215,7 @@ namespace Files.App.UserControls
 
 			ContextCommandBar.PrimaryCommands.Add(new AppBarSeparator());
 
+			// "+" is always shown so tools can be added
 			var addButton = new AppBarButton
 			{
 				MinWidth = 40,
@@ -227,48 +228,66 @@ namespace Files.App.UserControls
 			addButton.Click += AddCustomToolButton_Click;
 			ContextCommandBar.PrimaryCommands.Add(addButton);
 
-			if (tools is not null && tools.Count > 0)
+			if (tools is null || tools.Count == 0)
+				return;
+
+			foreach (var tool in tools)
 			{
-				var toolsButton = new AppBarButton
+				var captured = tool;
+				var toolButton = new AppBarButton
 				{
 					MinWidth = 40,
-					Label = Strings.CustomTools.GetLocalizedResource(),
+					Label = tool.Name,
 					LabelPosition = CommandBarLabelPosition.Collapsed,
 				};
-				ToolTipService.SetToolTip(toolsButton, Strings.CustomTools.GetLocalizedResource());
-				AutomationProperties.SetAutomationId(toolsButton, "CustomToolsButton");
-				toolsButton.Content = new FontIcon { Glyph = "\uE719" };
+				ToolTipService.SetToolTip(toolButton, tool.Name);
+				AutomationProperties.SetName(toolButton, tool.Name);
+				AutomationProperties.SetAutomationId(toolButton, $"CustomTool_{tool.Name}");
+				toolButton.Content = new FontIcon { Glyph = "\uE713" };
+				_ = LoadCustomToolIconAsync(toolButton, tool.ExecutablePath);
 
-				var flyout = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
-				foreach (var tool in tools)
+				// Right-click to remove the tool
+				var removeFlyout = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
+				var removeItem = new MenuFlyoutItem { Text = Strings.Remove.GetLocalizedResource() };
+				removeItem.Click += (_, _) =>
 				{
-					var captured = tool;
-					var item = new MenuFlyoutItem { Text = tool.Name };
-					item.Click += async (_, _) => await LaunchCustomToolAsync(captured);
-					flyout.Items.Add(item);
-				}
+					var current = UserSettingsService.AppearanceSettingsService.CustomTools;
+					if (current is null)
+						return;
+					current.Remove(captured);
+					UserSettingsService.AppearanceSettingsService.CustomTools = current;
+				};
+				removeFlyout.Items.Add(removeItem);
+				toolButton.ContextFlyout = removeFlyout;
 
-				flyout.Items.Add(new MenuFlyoutSeparator());
-				for (var i = 0; i < tools.Count; i++)
+				toolButton.Click += async (_, _) => await LaunchCustomToolAsync(captured);
+				ContextCommandBar.PrimaryCommands.Add(toolButton);
+			}
+		}
+
+		private static async Task LoadCustomToolIconAsync(AppBarButton toolButton, string executablePath)
+		{
+			try
+			{
+				var result = await FileThumbnailHelper.GetIconAsync(
+					executablePath,
+					Constants.ShellIconSizes.Small,
+					false,
+					IconOptions.ReturnIconOnly);
+
+				if (result is null)
+					return;
+
+				await MainWindow.Instance.DispatcherQueue.EnqueueOrInvokeAsync(async () =>
 				{
-					var index = i;
-					var removeItem = new MenuFlyoutItem
-					{
-						Text = $"{Strings.Remove.GetLocalizedResource()}: {tools[i].Name}",
-					};
-					removeItem.Click += (_, _) =>
-					{
-						var current = UserSettingsService.AppearanceSettingsService.CustomTools;
-						if (current is null || index >= current.Count)
-							return;
-						current.RemoveAt(index);
-						UserSettingsService.AppearanceSettingsService.CustomTools = current;
-					};
-					flyout.Items.Add(removeItem);
-				}
-
-				toolsButton.Flyout = flyout;
-				ContextCommandBar.PrimaryCommands.Add(toolsButton);
+					var bitmap = await result.ToBitmapAsync();
+					if (bitmap is not null)
+						toolButton.Content = new ImageIcon { Width = 20, Height = 20, Source = bitmap };
+				});
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine(ex);
 			}
 		}
 
