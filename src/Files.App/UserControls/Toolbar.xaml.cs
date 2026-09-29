@@ -236,6 +236,7 @@ namespace Files.App.UserControls
 				var captured = tool;
 				var toolButton = new AppBarButton
 				{
+					Width = double.NaN,
 					MinWidth = 40,
 					Label = tool.Name,
 					LabelPosition = CommandBarLabelPosition.Collapsed,
@@ -243,7 +244,7 @@ namespace Files.App.UserControls
 				ToolTipService.SetToolTip(toolButton, tool.Name);
 				AutomationProperties.SetName(toolButton, tool.Name);
 				AutomationProperties.SetAutomationId(toolButton, $"CustomTool_{tool.Name}");
-				toolButton.Content = new FontIcon { Glyph = "\uE713" };
+				toolButton.Content = new FontIcon { Glyph = "\uE713", FontSize = 16 };
 				_ = LoadCustomToolIconAsync(toolButton, tool.ExecutablePath);
 
 				// Right-click to remove the tool
@@ -254,8 +255,16 @@ namespace Files.App.UserControls
 					var current = UserSettingsService.AppearanceSettingsService.CustomTools;
 					if (current is null)
 						return;
-					current.Remove(captured);
-					UserSettingsService.AppearanceSettingsService.CustomTools = current;
+
+					// Match by value: the settings getter deserializes a fresh list each call,
+					// so the captured instance can't be removed by reference
+					var remaining = current
+						.Where(t => t.Name != captured.Name || t.ExecutablePath != captured.ExecutablePath)
+						.ToList();
+					if (remaining.Count == current.Count)
+						return;
+
+					UserSettingsService.AppearanceSettingsService.CustomTools = remaining;
 				};
 				removeFlyout.Items.Add(removeItem);
 				toolButton.ContextFlyout = removeFlyout;
@@ -282,7 +291,7 @@ namespace Files.App.UserControls
 				{
 					var bitmap = await result.ToBitmapAsync();
 					if (bitmap is not null)
-						toolButton.Content = new ImageIcon { Width = 20, Height = 20, Source = bitmap };
+						toolButton.Content = new ImageIcon { Width = 16, Height = 16, Source = bitmap };
 				});
 			}
 			catch (Exception ex)
