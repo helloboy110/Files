@@ -50,7 +50,7 @@ namespace Files.App.Helpers
 				if (CurrentPackage is not null)
 					return CurrentPackage.Id.Version;
 
-				var version = typeof(PackageCompat).Assembly.GetName().Version ?? new Version(4, 2, 37, 0);
+				var version = typeof(PackageCompat).Assembly.GetName().Version ?? new Version(2, 0, 0, 1);
 				return new PackageVersion
 				{
 					Major = (ushort)version.Major,
