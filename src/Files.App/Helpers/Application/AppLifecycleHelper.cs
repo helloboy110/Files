@@ -396,13 +396,8 @@ namespace Files.App.Helpers
 					.AddSingleton<LibraryManager>()
 					.AddSingleton(appModel);
 
-			// Conditional DI
-			if (AppEnvironment is AppEnvironment.SideloadPreview or AppEnvironment.SideloadStable)
-				services.AddSingleton<IUpdateService, SideloadUpdateService>();
-			else if (AppEnvironment is AppEnvironment.StorePreview or AppEnvironment.StoreStable)
-				services.AddSingleton<IUpdateService, StoreUpdateService>();
-			else
-				services.AddSingleton<IUpdateService, DummyUpdateService>();
+			// Updates are disabled in this fork: always use the no-op service
+			services.AddSingleton<IUpdateService, DummyUpdateService>();
 
 			return services.BuildServiceProvider();
 		}
