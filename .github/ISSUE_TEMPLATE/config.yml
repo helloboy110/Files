@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
   - name: Feature Request
-    url: https://discord.gg/files
+    url: https://github.com/helloboy110/Files/issues/new
     about: Suggest an idea for Files.
   - name: Translation issue
-    url: https://crowdin.com/project/files-app
-    about: Help improve translations on Crowdin.
+    url: https://github.com/helloboy110/Files
+    about: Help improve translations.
   - name: Question & Discussion
-    url: https://discord.gg/files
-    about: Post your questions and join the discussion. You can participate in chats on every channel.
+    url: https://github.com/helloboy110/Files/discussions
+    about: Post your questions and join the discussion.
   - name: Code Quality
-    url: https://discord.gg/files
-    about: Discuss code quality and improvements on our Discord server.
+    url: https://github.com/helloboy110/Files/discussions
+    about: Discuss code quality and improvements.
