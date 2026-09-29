@@ -4668,6 +4668,24 @@
   <data name="CustomizeToolbar" xml:space="preserve">
     <value>自定义工具栏</value>
   </data>
+  <data name="AddCustomTool" xml:space="preserve">
+    <value>添加自定义工具</value>
+  </data>
+  <data name="CustomTools" xml:space="preserve">
+    <value>自定义工具</value>
+  </data>
+  <data name="ExecutablePath" xml:space="preserve">
+    <value>可执行文件</value>
+  </data>
+  <data name="ExecutablePathPlaceholder" xml:space="preserve">
+    <value>可执行文件路径</value>
+  </data>
+  <data name="CustomToolArguments" xml:space="preserve">
+    <value>启动参数</value>
+  </data>
+  <data name="CustomToolArgumentsPlaceholder" xml:space="preserve">
+    <value>可选的启动参数</value>
+  </data>
   <data name="CustomizeToolbarDescription" xml:space="preserve">
     <value>自定义工具栏按钮</value>
   </data>

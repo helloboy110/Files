@@ -4674,6 +4674,24 @@
   <data name="CustomizeToolbar" xml:space="preserve">
     <value>Customize toolbar</value>
   </data>
+  <data name="AddCustomTool" xml:space="preserve">
+    <value>Add custom tool</value>
+  </data>
+  <data name="CustomTools" xml:space="preserve">
+    <value>Custom tools</value>
+  </data>
+  <data name="ExecutablePath" xml:space="preserve">
+    <value>Executable</value>
+  </data>
+  <data name="ExecutablePathPlaceholder" xml:space="preserve">
+    <value>Path to the executable file</value>
+  </data>
+  <data name="CustomToolArguments" xml:space="preserve">
+    <value>Arguments</value>
+  </data>
+  <data name="CustomToolArgumentsPlaceholder" xml:space="preserve">
+    <value>Optional launch arguments</value>
+  </data>
   <data name="CustomizeToolbarDescription" xml:space="preserve">
     <value>Customize toolbar buttons</value>
   </data>

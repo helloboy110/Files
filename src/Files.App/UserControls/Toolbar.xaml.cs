@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using CommunityToolkit.WinUI;
+using Files.App.Dialogs;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -110,8 +111,42 @@ namespace Files.App.UserControls
 
 		private void AppearanceSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName is nameof(IAppearanceSettingsService.CustomToolbarItems))
+			if (e.PropertyName is nameof(IAppearanceSettingsService.CustomToolbarItems)
+				or nameof(IAppearanceSettingsService.CustomTools))
 				RequestToolbarRefresh(true);
+		}
+
+		private async void AddCustomToolButton_Click(object sender, RoutedEventArgs e)
+		{
+			var dialog = new AddCustomToolDialog()
+			{
+				XamlRoot = MainWindow.Instance.Content.XamlRoot,
+			};
+
+			if (await dialog.ShowAsync() != DialogResult.Primary)
+				return;
+
+			var vm = dialog.ViewModel;
+			var tools = UserSettingsService.AppearanceSettingsService.CustomTools ?? [];
+			tools.Add(new CustomToolItem
+			{
+				Name = vm.ToolName.Trim(),
+				ExecutablePath = vm.ExecutablePath.Trim(),
+				Arguments = string.IsNullOrWhiteSpace(vm.Arguments) ? null : vm.Arguments.Trim(),
+			});
+			UserSettingsService.AppearanceSettingsService.CustomTools = tools;
+		}
+
+		private static async Task LaunchCustomToolAsync(CustomToolItem tool)
+		{
+			try
+			{
+				await LaunchHelper.LaunchAppAsync(tool.ExecutablePath, tool.Arguments, null);
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine(ex);
+			}
 		}
 
 		private async void EditTagsMenu_TagsChanged(object? sender, EventArgs e)
@@ -168,7 +203,73 @@ namespace Files.App.UserControls
 				}
 			}
 
+			// Custom tools follow the built-in commands, before the overflow separator
+			PopulateCustomTools();
+
 			UpdateCommandBarSeparatorVisibility(ContextCommandBar.PrimaryCommands);
+		}
+
+		private void PopulateCustomTools()
+		{
+			var tools = UserSettingsService.AppearanceSettingsService.CustomTools;
+
+			ContextCommandBar.PrimaryCommands.Add(new AppBarSeparator());
+
+			var addButton = new AppBarButton
+			{
+				MinWidth = 40,
+				Label = Strings.AddCustomTool.GetLocalizedResource(),
+				LabelPosition = CommandBarLabelPosition.Collapsed,
+			};
+			ToolTipService.SetToolTip(addButton, Strings.AddCustomTool.GetLocalizedResource());
+			AutomationProperties.SetAutomationId(addButton, "AddCustomToolButton");
+			addButton.Content = new FontIcon { Glyph = "\uE710" };
+			addButton.Click += AddCustomToolButton_Click;
+			ContextCommandBar.PrimaryCommands.Add(addButton);
+
+			if (tools is not null && tools.Count > 0)
+			{
+				var toolsButton = new AppBarButton
+				{
+					MinWidth = 40,
+					Label = Strings.CustomTools.GetLocalizedResource(),
+					LabelPosition = CommandBarLabelPosition.Collapsed,
+				};
+				ToolTipService.SetToolTip(toolsButton, Strings.CustomTools.GetLocalizedResource());
+				AutomationProperties.SetAutomationId(toolsButton, "CustomToolsButton");
+				toolsButton.Content = new FontIcon { Glyph = "\uE719" };
+
+				var flyout = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
+				foreach (var tool in tools)
+				{
+					var captured = tool;
+					var item = new MenuFlyoutItem { Text = tool.Name };
+					item.Click += async (_, _) => await LaunchCustomToolAsync(captured);
+					flyout.Items.Add(item);
+				}
+
+				flyout.Items.Add(new MenuFlyoutSeparator());
+				for (var i = 0; i < tools.Count; i++)
+				{
+					var index = i;
+					var removeItem = new MenuFlyoutItem
+					{
+						Text = $"{Strings.Remove.GetLocalizedResource()}: {tools[i].Name}",
+					};
+					removeItem.Click += (_, _) =>
+					{
+						var current = UserSettingsService.AppearanceSettingsService.CustomTools;
+						if (current is null || index >= current.Count)
+							return;
+						current.RemoveAt(index);
+						UserSettingsService.AppearanceSettingsService.CustomTools = current;
+					};
+					flyout.Items.Add(removeItem);
+				}
+
+				toolsButton.Flyout = flyout;
+				ContextCommandBar.PrimaryCommands.Add(toolsButton);
+			}
 		}
 
 		private HashSet<string> GetActiveToolbarContexts()

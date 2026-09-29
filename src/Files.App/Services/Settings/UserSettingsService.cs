@@ -25,6 +25,7 @@ namespace Files.App.Services.Settings
 	[JsonSerializable(typeof(List<ActionWithParameterItem>))]
 	[JsonSerializable(typeof(Dictionary<string, List<ToolbarItemSettingsEntry>>))]
 	[JsonSerializable(typeof(Dictionary<string, List<string>>))]
+	[JsonSerializable(typeof(List<CustomToolItem>))]
 	[JsonSerializable(typeof(DateTimeFormats))]
 	[JsonSerializable(typeof(SingleClickOpenMode))]
 	[JsonSerializable(typeof(SizeUnitTypes))]

@@ -180,6 +180,13 @@ namespace Files.App.Services.Settings
 			set => Set(value);
 		}
 
+		/// <inheritdoc/>
+		public List<CustomToolItem>? CustomTools
+		{
+			get => Get<List<CustomToolItem>?>(null);
+			set => Set(value);
+		}
+
 		protected override void RaiseOnSettingChangedEvent(object sender, SettingChangedEventArgs e)
 		{
 			base.RaiseOnSettingChangedEvent(sender, e);

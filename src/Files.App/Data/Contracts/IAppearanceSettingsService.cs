@@ -134,5 +134,10 @@ namespace Files.App.Data.Contracts
 		/// This is used to inject only newly introduced default actions for existing user configs.
 		/// </summary>
 		Dictionary<string, List<string>>? LastKnownToolbarDefaults { get; set; }
+
+		/// <summary>
+		/// Gets or sets the user-defined tools shown on the inner toolbar.
+		/// </summary>
+		List<CustomToolItem>? CustomTools { get; set; }
 	}
 }

@@ -1,0 +1,105 @@
+<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
+<ContentDialog
+	x:Class="Files.App.Dialogs.AddCustomToolDialog"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:helpers="using:Files.App.Helpers"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	x:Name="AddCustomTool"
+	Title="{helpers:ResourceString Name=AddCustomTool}"
+	CornerRadius="{StaticResource OverlayCornerRadius}"
+	DefaultButton="Primary"
+	HighContrastAdjustment="None"
+	IsPrimaryButtonEnabled="{x:Bind ViewModel.IsToolValid, Mode=OneWay}"
+	PrimaryButtonStyle="{StaticResource AccentButtonStyle}"
+	PrimaryButtonText="{helpers:ResourceString Name=Save}"
+	RequestedTheme="{x:Bind RootAppElement.RequestedTheme, Mode=OneWay}"
+	SecondaryButtonText="{helpers:ResourceString Name=Cancel}"
+	Style="{StaticResource DefaultContentDialogStyle}"
+	mc:Ignorable="d">
+
+	<StackPanel Width="440" Spacing="4">
+
+		<!--  Tool Name  -->
+		<Grid
+			Padding="12"
+			Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+			BorderThickness="1"
+			ColumnSpacing="8"
+			CornerRadius="4">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="Auto" />
+			</Grid.ColumnDefinitions>
+			<TextBlock
+				Grid.Column="0"
+				VerticalAlignment="Center"
+				Text="{helpers:ResourceString Name=Name}" />
+			<TextBox
+				x:Name="ToolNameBox"
+				Grid.Column="1"
+				Width="260"
+				PlaceholderText="{helpers:ResourceString Name=EnterName}"
+				Text="{x:Bind ViewModel.ToolName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+		</Grid>
+
+		<!--  Executable Path  -->
+		<Grid
+			Padding="12"
+			Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+			BorderThickness="1"
+			ColumnSpacing="8"
+			CornerRadius="4">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="Auto" />
+			</Grid.ColumnDefinitions>
+			<TextBlock
+				Grid.Column="0"
+				VerticalAlignment="Center"
+				Text="{helpers:ResourceString Name=ExecutablePath}" />
+			<StackPanel
+				Grid.Column="1"
+				Orientation="Horizontal"
+				Spacing="8">
+				<TextBox
+					x:Name="ExecutablePathBox"
+					Width="180"
+					PlaceholderText="{helpers:ResourceString Name=ExecutablePathPlaceholder}"
+					Text="{x:Bind ViewModel.ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+				<Button
+					x:Name="BrowseButton"
+					Click="BrowseButton_Click"
+					Content="{helpers:ResourceString Name=Browse}" />
+			</StackPanel>
+		</Grid>
+
+		<!--  Arguments  -->
+		<Grid
+			Padding="12"
+			Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+			BorderThickness="1"
+			ColumnSpacing="8"
+			CornerRadius="4">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="Auto" />
+			</Grid.ColumnDefinitions>
+			<TextBlock
+				Grid.Column="0"
+				VerticalAlignment="Center"
+				Text="{helpers:ResourceString Name=CustomToolArguments}" />
+			<TextBox
+				x:Name="ArgumentsBox"
+				Grid.Column="1"
+				Width="260"
+				PlaceholderText="{helpers:ResourceString Name=CustomToolArgumentsPlaceholder}"
+				Text="{x:Bind ViewModel.Arguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+		</Grid>
+
+	</StackPanel>
+</ContentDialog>
