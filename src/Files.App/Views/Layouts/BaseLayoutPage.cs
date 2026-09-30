@@ -646,7 +646,26 @@ namespace Files.App.Views.Layouts
 		{
 			contextInvocationValid = e.TryGetPosition(this, out contextInvocationPosition);
 
+			// A visible item tooltip is a topmost popup and would sit above the menu being opened
+			CloseOpenItemTooltips();
+
 			TryShowNativeContextMenu(e);
+		}
+
+		private void CloseOpenItemTooltips()
+		{
+			try
+			{
+				foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot))
+				{
+					if (popup.Child is ToolTip tooltip && tooltip.IsOpen)
+						tooltip.IsOpen = false;
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine(ex);
+			}
 		}
 
 		// Native Windows context menu support
@@ -1584,7 +1603,9 @@ namespace Files.App.Views.Layouts
 			if (sender is SelectorItem selectorItem && selectorItem.IsSelected)
 				MainWindow.Instance.SetCanWindowToFront(false);
 
-			if (sender is SelectorItem tooltipContainer && tooltipContainer.Content is ListedItem listedItem)
+			// While the native context menu is up the window takes no input; a tooltip set now would
+			// pop in above the menu once input returns.
+			if (nativeMenuShowGate is 0 && sender is SelectorItem tooltipContainer && tooltipContainer.Content is ListedItem listedItem)
 				UpdateItemToolTip(tooltipContainer, listedItem.ItemTooltipText);
 
 			if (!UserSettingsService.FoldersSettingsService.SelectFilesOnHover)
