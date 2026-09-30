@@ -174,7 +174,7 @@ namespace Files.App
 
 		public static class ExternalUrl
 		{
-			public const string GitHubRepoBaseUrl = @"https://github.com/hibuddy11/Files";
+			public const string GitHubRepoBaseUrl = @"https://github.com/hibuddy11/FilesPlus";
 
 			public const string GitHubRepoUrl = GitHubRepoBaseUrl;
 			public const string DocumentationUrl = GitHubRepoBaseUrl;
