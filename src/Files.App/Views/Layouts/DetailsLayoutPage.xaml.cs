@@ -1319,7 +1319,7 @@ namespace Files.App.Views.Layouts
 		}
 
 		// The header grid owns its flyout (sorting, column widths); the native menu must not cover it
-		protected override bool IsRightTapWithinOwnedFlyoutRegion(RightTappedRoutedEventArgs e)
+		protected override bool IsRightTapWithinOwnedFlyoutRegion(ContextRequestedEventArgs e)
 		{
 			var node = e.OriginalSource as DependencyObject;
 			while (node is not null && !ReferenceEquals(node, this))

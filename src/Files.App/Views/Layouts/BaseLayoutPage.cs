@@ -85,7 +85,6 @@ namespace Files.App.Views.Layouts
 		private Point contextInvocationPosition;
 		private bool contextInvocationValid;
 		private TypedEventHandler<UIElement, ContextRequestedEventArgs>? contextRequestedHandler;
-		private RightTappedEventHandler? nativeMenuRightTappedHandler;
 
 		// Properties
 
@@ -629,22 +628,21 @@ namespace Files.App.Views.Layouts
 			ItemContextMenuFlyout.Opening += ItemContextFlyout_Opening;
 			BaseContextMenuFlyout.Opening += BaseContextFlyout_Opening;
 
-			// On the page so it covers item rows and the empty background; handledEventsToo so it still runs after
-			// the built-in flyout handling. The hosts pull the captured point when the menu opens.
-			contextRequestedHandler = OnContextRequestedForPlacement;
+			// Page-level interception of every context invocation (mouse right-click, touch long-press,
+			// keyboard menu key); handledEventsToo so it also runs when the framework already marked the
+			// event handled by auto-opening an attached ContextFlyout. The hosts pull the captured point
+			// when the menu opens.
+			contextRequestedHandler = OnPageContextRequested;
 			AddHandler(UIElement.ContextRequestedEvent, contextRequestedHandler, true);
 			ItemContextFlyoutHost.InvocationPointProvider = () => contextInvocationValid ? (this, contextInvocationPosition) : null;
 			BaseContextFlyoutHost.InvocationPointProvider = () => contextInvocationValid ? (this, contextInvocationPosition) : null;
-
-			// Empty-background right-clicks for the native Windows context menu. Item right-clicks are
-			// intercepted in FileListItem_RightTapped, so this only sees unhandled (background) events.
-			nativeMenuRightTappedHandler = OnPageRightTappedForNativeMenu;
-			AddHandler(UIElement.RightTappedEvent, nativeMenuRightTappedHandler, false);
 		}
 
-		private void OnContextRequestedForPlacement(UIElement sender, ContextRequestedEventArgs e)
+		private void OnPageContextRequested(UIElement sender, ContextRequestedEventArgs e)
 		{
 			contextInvocationValid = e.TryGetPosition(this, out contextInvocationPosition);
+
+			TryShowNativeContextMenu(e);
 		}
 
 		// Native Windows context menu support
@@ -679,30 +677,54 @@ namespace Files.App.Views.Layouts
 			}
 		}
 
-		private void OnPageRightTappedForNativeMenu(object sender, RightTappedRoutedEventArgs e)
+		// Replaces the framework's auto-opened ContextFlyout with the native Windows menu when enabled.
+		// RightTapped.Handled cannot suppress the flyout because the two are independent events; only
+		// marking ContextRequested handled keeps both menus from appearing.
+		private void TryShowNativeContextMenu(ContextRequestedEventArgs e)
 		{
 			if (!ShouldShowNativeContextMenu() || !CanShowNativeMenuForCurrentPage())
 				return;
 
-			// Regions that carry their own flyout (the details-view column header) must not get
-			// the native menu stacked on top of it
 			if (IsRightTapWithinOwnedFlyoutRegion(e))
 				return;
+
+			// Resolve the clicked item from the original source; null means the empty background.
+			var clickedItem = GetItemFromElement(e.OriginalSource);
 
 			var parentShellPage = ParentShellPageInstance;
 			var workingDirectory = parentShellPage?.GetRequiredShellViewModel().WorkingDirectory;
 			if (string.IsNullOrEmpty(workingDirectory))
 				return;
 
+			string?[] paths;
+			if (clickedItem is not null)
+			{
+				// Preserve select-under-cursor semantics for unselected targets
+				if (e.OriginalSource is SelectorItem { IsSelected: false })
+					ItemManipulationModel.SetSelectedItem(clickedItem);
+
+				paths = SelectedItems?
+					.Where(x => !string.IsNullOrEmpty(x.ItemPath))
+					.Select(x => x.ItemPath)
+					.ToArray() ?? [];
+			}
+			else
+			{
+				paths = [workingDirectory];
+			}
+
+			if (paths.Length is 0)
+				return;
+
 			e.Handled = true;
-			_ = ShowNativeContextMenuAtCursorAsync([workingDirectory]);
+			_ = ShowNativeContextMenuAtCursorAsync(paths);
 		}
 
 		/// <summary>
 		/// Overridden by layouts whose header regions own their context flyout, so the native
 		/// Windows menu is not stacked on top of it.
 		/// </summary>
-		protected virtual bool IsRightTapWithinOwnedFlyoutRegion(RightTappedRoutedEventArgs e) => false;
+		protected virtual bool IsRightTapWithinOwnedFlyoutRegion(ContextRequestedEventArgs e) => false;
 
 		private async Task<IShellPage> EnsurePageIsCurrentAsync()
 		{
@@ -987,11 +1009,6 @@ namespace Files.App.Views.Layouts
 			{
 				RemoveHandler(UIElement.ContextRequestedEvent, contextRequestedHandler);
 				contextRequestedHandler = null;
-			}
-			if (nativeMenuRightTappedHandler is not null)
-			{
-				RemoveHandler(UIElement.RightTappedEvent, nativeMenuRightTappedHandler);
-				nativeMenuRightTappedHandler = null;
 			}
 			ItemContextFlyoutHost.InvocationPointProvider = null;
 			BaseContextFlyoutHost.InvocationPointProvider = null;
