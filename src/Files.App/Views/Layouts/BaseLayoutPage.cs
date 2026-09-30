@@ -87,7 +87,6 @@ namespace Files.App.Views.Layouts
 		private bool contextInvocationValid;
 		private TypedEventHandler<UIElement, ContextRequestedEventArgs>? contextRequestedHandler;
 		private int nativeMenuShowGate;
-		private long nativeMenuLastClosedAt;
 
 		// Properties
 
@@ -671,17 +670,14 @@ namespace Files.App.Views.Layouts
 
 		private async Task ShowNativeContextMenuAtCursorAsync(string?[] paths)
 		{
-			// One native menu at a time: a single gesture can surface a second ContextRequested raise
-			// (nested layout pages, the release half of the gesture) while the first menu is still up, and
-			// a trailing re-raise right after the previous menu closed is swallowed as well.
+			// One native menu at a time: re-raises of the same gesture (nested layout pages, the
+			// RightTapped half of the gesture) arrive while the first menu is still up; the gate drops
+			// those. A new right-click only lands after the previous menu closed and the gate released.
 			if (Interlocked.Exchange(ref nativeMenuShowGate, 1) == 1)
 				return;
 
 			try
 			{
-				if (Environment.TickCount64 - Volatile.Read(ref nativeMenuLastClosedAt) < 200)
-					return;
-
 				PInvoke.GetCursorPos(out var cursor);
 				await Utils.Shell.ContextMenu.ShowNativeMenuAtAsync(paths, cursor.X, cursor.Y, MainWindow.Instance.WindowHandle);
 			}
@@ -691,7 +687,6 @@ namespace Files.App.Views.Layouts
 			}
 			finally
 			{
-				Volatile.Write(ref nativeMenuLastClosedAt, Environment.TickCount64);
 				Volatile.Write(ref nativeMenuShowGate, 0);
 			}
 		}
@@ -1674,22 +1669,6 @@ namespace Files.App.Views.Layouts
 
 			if (rightClickedItem is not null && !((SelectorItem)sender).IsSelected)
 				ItemManipulationModel.SetSelectedItem(rightClickedItem);
-
-			// Native Windows context menu: show the shell menu directly instead of the Files flyout.
-			// Handled here (before the built-in ContextRequested handling) so the flyout stays closed.
-			if (ShouldShowNativeContextMenu() && CanShowNativeMenuForCurrentPage())
-			{
-				var paths = SelectedItems?
-					.Where(x => !string.IsNullOrEmpty(x.ItemPath))
-					.Select(x => x.ItemPath)
-					.ToArray();
-
-				if (paths is { Length: > 0 })
-				{
-					e.Handled = true;
-					_ = ShowNativeContextMenuAtCursorAsync(paths);
-				}
-			}
 		}
 
 		protected void InitializeDrag(UIElement container, ListedItem item)
