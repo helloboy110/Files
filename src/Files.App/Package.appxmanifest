@@ -17,7 +17,7 @@
     <Identity
         Name="FilesDev"
         Publisher="CN=Files"
-        Version="2.0.0.1" />
+        Version="2.0.1.1" />
 
     <Properties>
         <DisplayName>FilesPlus</DisplayName>
