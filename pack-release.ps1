@@ -14,13 +14,13 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
 $out = "src\Files.App\bin\Unpackaged\$Platform\$Configuration\net10.0-windows10.0.26100.0\win-$Platform"
-if (-not (Test-Path "$out\Files.exe")) {
+if (-not (Test-Path "$out\FilesPlus.exe")) {
 	Write-Error "Build output not found: $out. Build first: msbuild -p:Configuration=$Configuration -p:Platform=$Platform -p:FilesUnpackaged=true"
 	exit 1
 }
 
-$version = (Get-Item "$out\Files.exe").VersionInfo.ProductVersion -replace '\+.*$', ''
-$zip = "artifacts\Files-$version-$Platform.zip"
+$version = (Get-Item "$out\FilesPlus.exe").VersionInfo.ProductVersion -replace '\+.*$', ''
+$zip = "artifacts\FilesPlus-$version-$Platform.zip"
 New-Item -ItemType Directory -Force artifacts | Out-Null
 if (Test-Path $zip) { Remove-Item $zip -Force }
 

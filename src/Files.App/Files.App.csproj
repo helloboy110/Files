@@ -6,7 +6,7 @@
         <PublishProfile>Properties\PublishProfiles\win-$(Platform).pubxml</PublishProfile>
         <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
         <OutputType>WinExe</OutputType>
-        <AssemblyName>Files</AssemblyName>
+        <AssemblyName>FilesPlus</AssemblyName>
         <Version>2.0.0.1</Version>
         <DefaultLanguage>en-US</DefaultLanguage>
         <AppxBundleAutoResourcePackageQualifiers>Scale|DXFeatureLevel</AppxBundleAutoResourcePackageQualifiers>

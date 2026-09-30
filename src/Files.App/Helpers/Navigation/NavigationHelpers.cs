@@ -381,7 +381,7 @@ namespace Files.App.Helpers
 					(windowTitle, _, _) = await GetSelectedTabInfoAsync(pathArgs);
 
 				if (navigationArg == MainPageViewModel.SelectedTabItem?.NavigationParameter?.NavigationParameter)
-					MainWindow.Instance.AppWindow.Title = $"{windowTitle} - Files";
+					MainWindow.Instance.AppWindow.Title = $"{windowTitle} - FilesPlus";
 			});
 		}
 

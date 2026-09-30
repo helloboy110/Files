@@ -33,7 +33,7 @@ namespace Files.App.Helpers
 		/// <summary>
 		/// Gets the display name of the package or, when unpackaged, a fallback name.
 		/// </summary>
-		public static string DisplayName => CurrentPackage?.DisplayName ?? "Files";
+		public static string DisplayName => CurrentPackage?.DisplayName ?? "FilesPlus";
 
 		/// <summary>
 		/// Gets the package family name or, when unpackaged, a fallback name.

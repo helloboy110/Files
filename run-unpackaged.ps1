@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
 	exit $LASTEXITCODE
 }
 
-$exe = Join-Path $repoRoot "src\Files.App\bin\Unpackaged\$Platform\Debug\net10.0-windows10.0.26100.0\win-$Platform\Files.exe"
+$exe = Join-Path $repoRoot "src\Files.App\bin\Unpackaged\$Platform\Debug\net10.0-windows10.0.26100.0\win-$Platform\FilesPlus.exe"
 Write-Host "Build succeeded: $exe"
 
 if (-not $NoLaunch) {

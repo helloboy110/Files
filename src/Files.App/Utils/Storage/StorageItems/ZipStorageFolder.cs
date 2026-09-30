@@ -153,6 +153,7 @@ namespace Files.App.Utils.Storage
 					return Constants.Distributions.KnownAppNames.Any(x => assoc.StartsWith(x, StringComparison.OrdinalIgnoreCase))
 						|| assoc == PackageCompat.FamilyName
 						|| assoc.EndsWith("Files.exe", StringComparison.OrdinalIgnoreCase)
+						|| assoc.EndsWith("FilesPlus.exe", StringComparison.OrdinalIgnoreCase)
 						|| assoc.Equals(IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), StringComparison.OrdinalIgnoreCase);
 				}
 				return true;
