@@ -697,14 +697,12 @@ namespace Files.App.Views.Layouts
 		}
 
 		// Replaces the framework's auto-opened ContextFlyout with the native Windows menu when enabled.
-		// Marking ContextRequested handled keeps the Files flyout from stacking on top. Events already
-		// claimed by another handler (e.g. an inner layout page in columns mode) are left alone.
+		// The Files flyout is attached to the item containers and the page root, and the framework can
+		// open it at those elements while the event is still bubbling - before this page-level handler
+		// runs and before marking Handled would help. The takeover therefore also closes any flyout the
+		// framework already opened during this same input dispatch (synchronously, so it never renders).
 		private void TryShowNativeContextMenu(ContextRequestedEventArgs e)
 		{
-			// Another handler (inner page, control with its own flyout) already claimed this gesture
-			if (e.Handled)
-				return;
-
 			if (!ShouldShowNativeContextMenu() || !CanShowNativeMenuForCurrentPage())
 				return;
 
@@ -739,7 +737,17 @@ namespace Files.App.Views.Layouts
 			if (paths.Length is 0)
 				return;
 
+			// Claim the gesture so the framework's routed-event fallback does not open the Files flyout
+			// after this handler returns.
 			e.Handled = true;
+
+			// Close whatever the framework already auto-opened at the item container or page root while
+			// the event was bubbling up; this runs within the same input dispatch, before a frame renders.
+			if (ItemContextMenuFlyout.IsOpen)
+				ItemContextMenuFlyout.Hide();
+			if (BaseContextMenuFlyout.IsOpen)
+				BaseContextMenuFlyout.Hide();
+
 			_ = ShowNativeContextMenuAtCursorAsync(paths);
 		}
 
