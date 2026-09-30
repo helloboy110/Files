@@ -218,6 +218,7 @@ namespace Files.App.UserControls
 			// "+" is always shown so tools can be added
 			var addButton = new AppBarButton
 			{
+				Width = double.NaN,
 				MinWidth = 40,
 				Label = Strings.AddCustomTool.GetLocalizedResource(),
 				LabelPosition = CommandBarLabelPosition.Collapsed,
