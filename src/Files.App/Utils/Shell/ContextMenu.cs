@@ -278,11 +278,15 @@ namespace Files.App.Utils.Shell
 					if (command is 0)
 						return false;
 
+					// lpVerb is the offset relative to the idCmdFirst (1) passed to QueryContextMenu,
+					// not the absolute menu item id; without the shift every command runs its neighbor.
+					var commandOffset = command - 1;
+
 					var commandInfo = default(CMINVOKECOMMANDINFOEX);
 					commandInfo.cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX);
 					commandInfo.fMask = CmicMaskUnicode;
-					commandInfo.lpVerb = (PCSTR)(byte*)(nuint)(uint)command;
-					commandInfo.lpVerbW = (PCWSTR)(char*)(nuint)(uint)command;
+					commandInfo.lpVerb = (PCSTR)(byte*)(nuint)(uint)commandOffset;
+					commandInfo.lpVerbW = (PCWSTR)(char*)(nuint)(uint)commandOffset;
 					commandInfo.nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL;
 					contextMenu.InvokeCommand((CMINVOKECOMMANDINFO*)&commandInfo).ThrowOnFailure();
 
