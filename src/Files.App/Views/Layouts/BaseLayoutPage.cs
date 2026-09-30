@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.DataTransfer.DragDrop;
 using Windows.Foundation;
@@ -85,6 +86,8 @@ namespace Files.App.Views.Layouts
 		private Point contextInvocationPosition;
 		private bool contextInvocationValid;
 		private TypedEventHandler<UIElement, ContextRequestedEventArgs>? contextRequestedHandler;
+		private int nativeMenuShowGate;
+		private long nativeMenuLastClosedAt;
 
 		// Properties
 
@@ -629,9 +632,11 @@ namespace Files.App.Views.Layouts
 			BaseContextMenuFlyout.Opening += BaseContextFlyout_Opening;
 
 			// Page-level interception of every context invocation (mouse right-click, touch long-press,
-			// keyboard menu key); handledEventsToo so it also runs when the framework already marked the
-			// event handled by auto-opening an attached ContextFlyout. The hosts pull the captured point
-			// when the menu opens.
+			// keyboard menu key). handledEventsToo keeps the invocation-point capture working when an inner
+			// handler already claimed the event; the native-menu path below skips such claimed events.
+			// The remove-before-add keeps a cached page instance (NavigationCacheMode) from stacking handlers.
+			if (contextRequestedHandler is not null)
+				RemoveHandler(UIElement.ContextRequestedEvent, contextRequestedHandler);
 			contextRequestedHandler = OnPageContextRequested;
 			AddHandler(UIElement.ContextRequestedEvent, contextRequestedHandler, true);
 			ItemContextFlyoutHost.InvocationPointProvider = () => contextInvocationValid ? (this, contextInvocationPosition) : null;
@@ -666,8 +671,17 @@ namespace Files.App.Views.Layouts
 
 		private async Task ShowNativeContextMenuAtCursorAsync(string?[] paths)
 		{
+			// One native menu at a time: a single gesture can surface a second ContextRequested raise
+			// (nested layout pages, the release half of the gesture) while the first menu is still up, and
+			// a trailing re-raise right after the previous menu closed is swallowed as well.
+			if (Interlocked.Exchange(ref nativeMenuShowGate, 1) == 1)
+				return;
+
 			try
 			{
+				if (Environment.TickCount64 - Volatile.Read(ref nativeMenuLastClosedAt) < 200)
+					return;
+
 				PInvoke.GetCursorPos(out var cursor);
 				await Utils.Shell.ContextMenu.ShowNativeMenuAtAsync(paths, cursor.X, cursor.Y, MainWindow.Instance.WindowHandle);
 			}
@@ -675,13 +689,22 @@ namespace Files.App.Views.Layouts
 			{
 				App.Logger?.LogWarning(ex, "Failed to show the native context menu.");
 			}
+			finally
+			{
+				Volatile.Write(ref nativeMenuLastClosedAt, Environment.TickCount64);
+				Volatile.Write(ref nativeMenuShowGate, 0);
+			}
 		}
 
 		// Replaces the framework's auto-opened ContextFlyout with the native Windows menu when enabled.
-		// RightTapped.Handled cannot suppress the flyout because the two are independent events; only
-		// marking ContextRequested handled keeps both menus from appearing.
+		// Marking ContextRequested handled keeps the Files flyout from stacking on top. Events already
+		// claimed by another handler (e.g. an inner layout page in columns mode) are left alone.
 		private void TryShowNativeContextMenu(ContextRequestedEventArgs e)
 		{
+			// Another handler (inner page, control with its own flyout) already claimed this gesture
+			if (e.Handled)
+				return;
+
 			if (!ShouldShowNativeContextMenu() || !CanShowNativeMenuForCurrentPage())
 				return;
 
