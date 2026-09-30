@@ -649,6 +649,10 @@ namespace Files.App.Views.Layouts
 			// A visible item tooltip is a topmost popup and would sit above the menu being opened
 			CloseOpenItemTooltips();
 
+			// A tooltip still in its hover dwell delay would pop in above the menu once the timer fires;
+			// detach it from the right-clicked item (the next hover re-attaches it).
+			DismissPendingItemTooltip(e.OriginalSource);
+
 			TryShowNativeContextMenu(e);
 		}
 
@@ -661,6 +665,27 @@ namespace Files.App.Views.Layouts
 					if (popup.Child is ToolTip tooltip && tooltip.IsOpen)
 						tooltip.IsOpen = false;
 				}
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine(ex);
+			}
+		}
+
+		private static void DismissPendingItemTooltip(object originalSource)
+		{
+			try
+			{
+				var node = originalSource as DependencyObject;
+				while (node is not null && node is not SelectorItem)
+					node = VisualTreeHelper.GetParent(node);
+
+				if (node is not SelectorItem container)
+					return;
+
+				ToolTipService.SetToolTip(container, null);
+				if (container.ContentTemplateRoot is FrameworkElement contentTemplateRoot)
+					ToolTipService.SetToolTip(contentTemplateRoot, null);
 			}
 			catch (Exception ex)
 			{
